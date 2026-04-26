@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory, request, make_response
 import os
 
 app = Flask(__name__)
@@ -14,14 +14,20 @@ def version():
     if request.headers.get("X-API-KEY") != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
 
-    return send_from_directory(".", "version.json")
+    response = make_response(send_from_directory(".", "version.json"))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 @app.route("/download/<path:filename>")
 def download(filename):
     if request.headers.get("X-API-KEY") != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
 
-    return send_from_directory("updates", filename)
+    response = make_response(send_from_directory("updates", filename))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
