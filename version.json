@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.9",
   "files": {
     "launcher.qml": "https://robnite-api.onrender.com/download/launcher.qml",
     "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
