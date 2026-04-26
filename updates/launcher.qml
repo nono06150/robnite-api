@@ -10,30 +10,42 @@ ApplicationWindow {
     color: "#0b0d13"
     title: "Robnite Launcher V6"
 
-    // --- VARIABLES D'ÉTAT ---
+    // --- PROPRIÉTÉS (CORRIGÉES POUR ÉVITER LES CRASHS) ---
     property bool isInstalling: false
-    property bool gameInstalledLocal: false
+    property bool gameInstalledLocal: false // Changé pour éviter l'erreur backend
     property int installProgress: 0
-    property string selectedBuild: "Fortnite 3.0"
-    
-    // État du serveur (Mettre à false pour activer le launcher)
-    property bool isMaintenance: true 
+    property string selectedTheme: "Default"
+    property int mainIndex: 0
 
-    // --- SYSTÈME DE PLUIE ---
+    // --- SYSTÈME DE PARTICULES ET PLUIE (CANVAS) ---
     Canvas {
-        id: rainCanvas
+        id: effectCanvas
         anchors.fill: parent
         z: 0
-        opacity: 0.25
-        property var drops: []
+        opacity: 0.4
+        
+        property var raindrops: []
+        property var particles: [] // Particules qui flottent
 
         Component.onCompleted: {
-            for (var i = 0; i < 100; i++) {
-                drops.push({
+            // Initialisation Pluie
+            for (var i = 0; i < 80; i++) {
+                raindrops.push({
                     x: Math.random() * window.width,
                     y: Math.random() * window.height,
-                    len: Math.random() * 15 + 5,
-                    speed: Math.random() * 10 + 7
+                    len: Math.random() * 20 + 10,
+                    speed: Math.random() * 15 + 10
+                })
+            }
+            // Initialisation Particules (Orbites)
+            for (var j = 0; j < 40; j++) {
+                particles.push({
+                    x: Math.random() * window.width,
+                    y: Math.random() * window.height,
+                    r: Math.random() * 3 + 1,
+                    speedX: (Math.random() - 0.5) * 1,
+                    speedY: (Math.random() - 0.5) * 1,
+                    alpha: Math.random()
                 })
             }
         }
@@ -41,31 +53,53 @@ ApplicationWindow {
         onPaint: {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
+            
+            // Dessiner la Pluie
             ctx.strokeStyle = "#4a5b7d"
             ctx.lineWidth = 1
             ctx.beginPath()
-            for (var i = 0; i < drops.length; i++) {
-                var d = drops[i]
+            for (var i = 0; i < raindrops.length; i++) {
+                var d = raindrops[i]
                 ctx.moveTo(d.x, d.y)
                 ctx.lineTo(d.x, d.y + d.len)
             }
             ctx.stroke()
+
+            // Dessiner les Particules
+            for (var j = 0; j < particles.length; j++) {
+                var p = particles[j]
+                ctx.beginPath()
+                ctx.fillStyle = "rgba(255, 255, 255, " + p.alpha + ")"
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+                ctx.fill()
+            }
         }
 
         Timer {
-            interval: 16; running: true; repeat: true
+            interval: 16
+            running: true
+            repeat: true
             onTriggered: {
-                for (var i = 0; i < rainCanvas.drops.length; i++) {
-                    var d = rainCanvas.drops[i]
+                // Animation Pluie
+                for (var i = 0; i < effectCanvas.raindrops.length; i++) {
+                    var d = effectCanvas.raindrops[i]
                     d.y += d.speed
                     if (d.y > window.height) { d.y = -20; d.x = Math.random() * window.width }
                 }
-                rainCanvas.requestPaint()
+                // Animation Particules
+                for (var j = 0; j < effectCanvas.particles.length; j++) {
+                    var p = effectCanvas.particles[j]
+                    p.x += p.speedX
+                    p.y += p.speedY
+                    if (p.x < 0 || p.x > window.width) p.speedX *= -1
+                    if (p.y < 0 || p.y > window.height) p.speedY *= -1
+                }
+                effectCanvas.requestPaint()
             }
         }
     }
 
-    // --- ARRIÈRE-PLAN ---
+    // --- FOND DÉGRADÉ ---
     Rectangle {
         anchors.fill: parent
         z: -1
@@ -75,47 +109,55 @@ ApplicationWindow {
         }
     }
 
-    // --- CONTENU DU LAUNCHER ---
+    // --- LAYOUT PRINCIPAL ---
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
         // Sidebar
         Rectangle {
-            width: 70; Layout.fillHeight: true
-            color: "#0e1017"
+            width: 75; Layout.fillHeight: true; color: "#0e1017"
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
-                y: 30; spacing: 25
-                Text { text: "R"; color: "white"; font.bold: true; font.pixelSize: 24 }
-                Text { text: "🏠"; color: "white"; font.pixelSize: 20 }
-                Text { text: "⚙️"; color: "gray"; font.pixelSize: 20 }
+                spacing: 25; y: 30
+                Text { text: "Era"; color: "white"; font.bold: true; font.pixelSize: 20 }
+                
+                // Navigation simple
+                Rectangle { width: 40; height: 40; radius: 10; color: "#25245c"
+                    Text { text: "🏠"; anchors.centerIn: parent; font.pixelSize: 20 }
+                }
             }
         }
 
-        // Main View
+        // Contenu
         ColumnLayout {
-            Layout.fillWidth: true; Layout.margins: 40; spacing: 30
+            Layout.fillWidth: true; Layout.margins: 40; spacing: 20
             
-            Text { 
-                text: "Bienvenue sur Robnite"; 
-                color: "white"; font.pixelSize: 32; font.bold: true 
-            }
+            Text { text: "Robnite Launcher"; color: "white"; font.pixelSize: 32; font.bold: true }
 
             Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 300; radius: 15
-                color: "#161923"
-                border.color: "#2c3040"
+                id: heroBanner
+                Layout.fillWidth: true; Layout.preferredHeight: 300; radius: 20
+                color: "#ff7418"
+                clip: true
                 
-                ColumnLayout {
-                    anchors.centerIn: parent; spacing: 15
-                    Text { text: "SAISON 3 DISPONIBLE"; color: "white"; font.bold: true; font.pixelSize: 24 }
+                Column {
+                    anchors.left: parent.left; anchors.leftMargin: 40; anchors.verticalCenter: parent.verticalCenter
+                    spacing: 15
+                    Text { text: "SAISON 3"; color: "white"; font.bold: true; font.pixelSize: 45 }
                     Button {
-                        text: isInstalling ? "INSTALLATION..." : "JOUER"
+                        text: "INSTALLER MAINTENANT"
                         onClicked: isInstalling = true
                     }
                 }
             }
+
+            ProgressBar {
+                Layout.fillWidth: true
+                visible: isInstalling
+                value: installProgress / 100
+            }
+
             Item { Layout.fillHeight: true }
         }
     }
@@ -124,90 +166,60 @@ ApplicationWindow {
     Rectangle {
         id: maintenanceOverlay
         anchors.fill: parent
-        color: "#f2000000" // Noir très opaque
-        visible: window.isMaintenance
-        z: 9999
+        color: "#f2000000"
+        z: 1000
+        visible: true // <--- Change en 'false' pour tester le launcher
 
         ColumnLayout {
             anchors.centerIn: parent
             spacing: 30
 
-            // Le Bouton Rond Hors Ligne
-            Item {
-                width: 150; height: 150
+            // Bouton Rond Hors Ligne
+            Rectangle {
+                id: offlineButton
+                width: 140; height: 140; radius: 70
+                color: "#1a0505"
+                border.color: "#ff3333"
+                border.width: 3
                 Layout.alignment: Qt.AlignHCenter
 
-                // Effet de halo (Glow) qui pulse
+                // Pulsation Glow
                 Rectangle {
-                    id: glowEffect
-                    anchors.fill: parent
-                    radius: 75
-                    color: "#ff0000"
-                    opacity: 0.2
-
-                    SequentialAnimation on opacity {
-                        loops: Animation.Infinite
-                        NumberAnimation { from: 0.05; to: 0.4; duration: 1500; easing.type: Easing.InOutSine }
-                        NumberAnimation { from: 0.4; to: 0.05; duration: 1500; easing.type: Easing.InOutSine }
-                    }
-
-                    PropertyAnimation on scale {
-                        loops: Animation.Infinite
-                        from: 0.9; to: 1.2; duration: 1500; easing.type: Easing.InOutSine
-                    }
+                    anchors.fill: parent; radius: 70
+                    color: "#ff0000"; opacity: 0.1
+                    PropertyAnimation on scale { from: 0.9; to: 1.2; duration: 1000; loops: Animation.Infinite; easing.type: Easing.InOutSine }
+                    PropertyAnimation on opacity { from: 0.1; to: 0.3; duration: 1000; loops: Animation.Infinite; easing.type: Easing.InOutSine }
                 }
 
-                // Cercle Principal
-                Rectangle {
-                    id: offlineCircle
+                Text {
                     anchors.centerIn: parent
-                    width: 100; height: 100
-                    radius: 50
-                    color: "#0b0d13"
-                    border.color: "#ff3333"
-                    border.width: 3
+                    text: "OFFLINE"
+                    color: "#ff3333"; font.bold: true; font.pixelSize: 18
+                }
 
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 2
-                        Text { 
-                            text: "STATUS"; color: "#666"; 
-                            font.pixelSize: 10; font.bold: true; 
-                            anchors.horizontalCenter: parent.horizontalCenter 
-                        }
-                        Text { 
-                            text: "OFFLINE"; color: "#ff3333"; 
-                            font.pixelSize: 14; font.bold: true; 
-                            anchors.horizontalCenter: parent.horizontalCenter 
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: shakeAnim.start()
-                    }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: shakeAnim.start()
                 }
             }
 
             Text {
-                text: "LES SERVEURS SONT ACTUELLEMENT EN MAINTENANCE"
-                color: "#888"
-                font.pixelSize: 12
-                font.letterSpacing: 1
+                text: "LES SERVEURS SONT EN MAINTENANCE"
+                color: "white"; font.pixelSize: 14; opacity: 0.6
                 Layout.alignment: Qt.AlignHCenter
             }
         }
     }
 
-    // Animation de secousse pour le bouton
+    // Animation de secousse
     SequentialAnimation {
         id: shakeAnim
-        target: offlineCircle
+        target: offlineButton
         property: "anchors.horizontalCenterOffset"
-        NumberAnimation { to: 10; duration: 40 }
-        NumberAnimation { to: -10; duration: 40 }
-        NumberAnimation { to: 5; duration: 40 }
-        NumberAnimation { to: -5; duration: 40 }
-        NumberAnimation { to: 0; duration: 40 }
+        NumberAnimation { to: 15; duration: 50 }
+        NumberAnimation { to: -15; duration: 50 }
+        NumberAnimation { to: 10; duration: 50 }
+        NumberAnimation { to: -10; duration: 50 }
+        NumberAnimation { to: 0; duration: 50 }
     }
 }
