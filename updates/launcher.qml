@@ -201,7 +201,7 @@ ApplicationWindow {
                         { icon: "📁", index: 2 },
                         { icon: "🛒", index: 3 },
                         { icon: "📜", index: 4 },
-                        { icon: "⚙️", index: 5 }
+                        { icon: "", index: 5 }
                     ]
 
                     Rectangle {
