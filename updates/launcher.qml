@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Particles 2.15 // Ajout du module de particules
 
 ApplicationWindow {
     id: window
@@ -258,9 +259,64 @@ ApplicationWindow {
         z: 1000
         visible: true // <--- METTRE A FALSE POUR UTILISER LE LAUNCHER
 
+        // --- NOUVEAU : SYSTÈME DE PARTICULES "ALERTE / MAINTENANCE" ---
+        ParticleSystem {
+            id: alertParticles
+            anchors.fill: parent
+
+            ItemParticle {
+                system: alertParticles
+                delegate: Item {
+                    width: 10; height: 10
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 6; height: 6; radius: 3
+                        color: "#ff1111"
+                        opacity: 0.8
+                        border.color: "#ff6666"
+                        border.width: 1
+                        
+                        // Effet de clignotement type alarme
+                        SequentialAnimation on opacity {
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 0.1; duration: 600 + Math.random() * 400 }
+                            NumberAnimation { to: 0.9; duration: 600 + Math.random() * 400 }
+                        }
+                    }
+                }
+            }
+
+            // Émetteur de particules depuis le bas de l'écran
+            Emitter {
+                system: alertParticles
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 40
+                emitRate: 35
+                lifeSpan: 5000
+                lifeSpanVariation: 1500
+                // Fait monter les étincelles vers le haut
+                velocity: PointDirection { 
+                    y: -60
+                    yVariation: 20
+                    xVariation: 30 
+                }
+            }
+
+            // Donne un mouvement flottant/aléatoire aux particules
+            Wander {
+                system: alertParticles
+                anchors.fill: parent
+                xVariance: 45
+                pace: 80
+            }
+        }
+        // --- FIN DU SYSTÈME DE PARTICULES ---
+
         ColumnLayout {
             anchors.centerIn: parent
             spacing: 30
+            z: 2 // S'assure que le texte reste au-dessus des particules
 
             Text {
                 text: "⚠️ ROBNITE EN MAINTENANCE"
