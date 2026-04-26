@@ -1,687 +1,1154 @@
-import sys
-import os
-import subprocess
-import threading
-import webbrowser
-import requests
-import json
-import logging
-import shutil
-import time
-from datetime import datetime, timedelta
-from flask import Flask, request
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 
-from PyQt6.QtWidgets import QApplication, QFileDialog, QWidget, QVBoxLayout, QLabel, QProgressBar
-from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtProperty, pyqtSignal, QTimer, QUrl, Qt
+ApplicationWindow {
+    id: window
+    visible: true
+    width: 1100
+    height: 700
+    color: "#0b0d13"
+    title: "Robnite Launcher"
 
-# --- CONFIGURATION ---
-CLIENT_ID = "1497235795717783552"
-CLIENT_SECRET = "J9QgHXC3u11qImE5ADW90zu-xWYmLc4-"
-REDIRECT_URI = "http://localhost:5000"
+    property bool isLaunching: false
+    property bool isInstalling: false
+    property bool showDownloadPopup: false
+    property bool showProfileMenu: false
+    property bool gameInstalledLocal: backend.isGameInstalled
+    property int installProgress: 0
+    property real downloadedGB: 0.0
+    property int downloadedFiles: 0
 
-API_BASE_URL = "https://robnite-api.onrender.com"
-API_KEY = "ROBNITE_SECURE_KEY"
+    property int unreadNews: 10
+    property int newsPage: 1
+    property int playerCount: 0
+    property string pingStatus: "Low"
 
-APP_NAME = "RobniteLauncher"
-CONFIG_FILE = "user_data.json"
-LOCAL_VERSION_FILE = "local_version.json"
+    property string downloadName: "Fortnite 3.0"
+    property string downloadSeason: "Saison 3"
+    property string downloadBuild: "3.0-CL-3901517"
+    property string downloadSize: "35 GB"
+    property string installLocation: "Documents\\Robnite\\builds\\Fortnite 3.0"
 
-API_UPDATES_FOLDER = r"C:\Users\Administrateur\Desktop\RobniteAPI\updates"
+    property string selectedBuild: window.isInstalling ? downloadName : (gameInstalledLocal ? downloadName : "Fortnite 1.11")
+    property string buildStatus: window.isInstalling ? ("Downloading... " + installProgress + "%") : (gameInstalledLocal ? "Installed" : "Not installed")
 
-app_flask = Flask(__name__)
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    property int elapsedSeconds: 0
+    property string sessionTimer: "00:00:00"
+    property int settingsIndex: 0
+    property string selectedTheme: "Default"
 
-
-def exe_dir():
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-def bundled_dir():
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return sys._MEIPASS
-    return exe_dir()
-
-
-def appdata_dir():
-    base = os.getenv("APPDATA", exe_dir())
-    path = os.path.join(base, APP_NAME)
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def bundled_path(name):
-    return os.path.join(bundled_dir(), name)
-
-
-def data_path(name):
-    return os.path.join(appdata_dir(), name)
-
-
-def api_update_path(name):
-    return os.path.join(API_UPDATES_FOLDER, name)
-
-
-def copy_to_appdata(name):
-    target = data_path(name)
-
-    source_api = api_update_path(name)
-    if os.path.exists(source_api):
-        shutil.copy2(source_api, target)
-        print("Fichier copié depuis RobniteAPI updates:", name)
-        return target
-
-    source_bundled = bundled_path(name)
-    if os.path.exists(source_bundled):
-        shutil.copy2(source_bundled, target)
-        print("Fichier copié depuis EXE:", name)
-        return target
-
-    source_local = os.path.join(exe_dir(), name)
-    if os.path.exists(source_local):
-        shutil.copy2(source_local, target)
-        print("Fichier copié depuis dossier Robnite:", name)
-        return target
-
-    return target
-
-
-def prepare_appdata_files():
-    copy_to_appdata("launcher.qml")
-    copy_to_appdata("splash.qml")
-
-
-def cleanup_on_close():
-    target = data_path("launcher.qml")
-
-    if os.path.exists(target):
-        try:
-            os.remove(target)
-            print("launcher.qml supprimé à la fermeture")
-        except Exception as e:
-            print("Impossible de supprimer launcher.qml:", e)
-
-
-def runtime_file(name):
-    updated = data_path(name)
-    if os.path.exists(updated):
-        return updated
-
-    bundled = bundled_path(name)
-    if os.path.exists(bundled):
-        return bundled
-
-    return os.path.join(exe_dir(), name)
-
-
-def restart_app():
-    if getattr(sys, "frozen", False):
-        subprocess.Popen([sys.executable], cwd=exe_dir())
-    else:
-        subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=exe_dir())
-    sys.exit()
-
-
-def load_local_version():
-    path = data_path(LOCAL_VERSION_FILE)
-
-    if not os.path.exists(path):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({"version": "1.0.0", "exe_version": "1.0.0"}, f, indent=4)
-        return {"version": "1.0.0", "exe_version": "1.0.0"}
-
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return {
-                "version": data.get("version", "1.0.0"),
-                "exe_version": data.get("exe_version", "1.0.0")
-            }
-    except Exception:
-        return {"version": "1.0.0", "exe_version": "1.0.0"}
-
-
-def save_local_version(version, exe_version=None):
-    old = load_local_version()
-    data = {
-        "version": version,
-        "exe_version": exe_version if exe_version else old.get("exe_version", "1.0.0")
+    function formatSessionTime(seconds) {
+        var h = Math.floor(seconds / 3600)
+        var m = Math.floor((seconds % 3600) / 60)
+        var s = seconds % 60
+        return String(h).padStart(2, "0") + ":" +
+               String(m).padStart(2, "0") + ":" +
+               String(s).padStart(2, "0")
     }
 
-    with open(data_path(LOCAL_VERSION_FILE), "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-
-
-def save_local_exe_version(exe_version):
-    old = load_local_version()
-    data = {
-        "version": old.get("version", "1.0.0"),
-        "exe_version": exe_version
+    function chooseInstallLocation() {
+        if (backend.chooseInstallFolder) {
+            var path = backend.chooseInstallFolder()
+            if (path !== "") {
+                installLocation = path
+                if (backend.saveLauncherSettings)
+                    backend.saveLauncherSettings(installLocation, selectedBuild, elapsedSeconds)
+            }
+        }
     }
 
-    with open(data_path(LOCAL_VERSION_FILE), "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-
-
-class UpdateWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Robnite Launcher - Update")
-        self.setFixedSize(520, 260)
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #0b0d13;
-                color: white;
-                font-family: Segoe UI;
+    function importBuild() {
+        if (backend.chooseImportFolder) {
+            var path = backend.chooseImportFolder()
+            if (path !== "") {
+                selectedBuild = "Imported Build"
+                if (backend.importBuildFromPath)
+                    backend.importBuildFromPath(path)
+                if (backend.saveLauncherSettings)
+                    backend.saveLauncherSettings(installLocation, selectedBuild, elapsedSeconds)
             }
-            QLabel {
-                color: white;
+        } else {
+            backend.importBuild()
+        }
+    }
+
+    function startInstall() {
+        showDownloadPopup = false
+        isInstalling = true
+        installProgress = 0
+        downloadedGB = 0.0
+        downloadedFiles = 0
+        mainStack.currentIndex = 1
+        installTimer.restart()
+
+        if (backend.startInstallToPath)
+            backend.startInstallToPath(downloadName, installLocation)
+        else
+            backend.installGameExe("D:/1.11/1.11/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe")
+    }
+
+    function finishInstall() {
+    isInstalling = false
+    gameInstalledLocal = true
+    installProgress = 100
+    downloadedGB = 35.0
+    downloadedFiles = 417
+    installTimer.stop()
+    selectedBuild = downloadName
+
+    if (backend.saveLauncherSettings)
+        backend.saveLauncherSettings(installLocation, downloadName, elapsedSeconds)
+}
+
+    function cancelInstall() {
+        isInstalling = false
+        installProgress = 0
+        downloadedGB = 0.0
+        downloadedFiles = 0
+        installTimer.stop()
+        if (backend.cancelInstall)
+            backend.cancelInstall()
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            elapsedSeconds += 1
+            sessionTimer = formatSessionTime(elapsedSeconds)
+        }
+    }
+
+    Timer {
+        id: installTimer
+        interval: 650
+        repeat: true
+        running: false
+        onTriggered: {
+            if (window.isInstalling) {
+                installProgress += 2
+                if (installProgress > 100)
+                    installProgress = 100
+
+                downloadedGB = Math.round((35 * installProgress / 100) * 100) / 100
+                downloadedFiles = Math.floor(417 * installProgress / 100)
+
+                if (installProgress >= 100) {
+                    window.finishInstall()
+               }
             }
-            QProgressBar {
-                border: 1px solid #2c3040;
-                border-radius: 8px;
-                text-align: center;
-                height: 24px;
-                background-color: #161923;
-                color: white;
-            }
-            QProgressBar::chunk {
-                background-color: #7045ff;
-                border-radius: 8px;
-            }
-        """)
-
-        layout = QVBoxLayout()
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(14)
-
-        self.title = QLabel("Recherche de mise à jour...")
-        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.title.setStyleSheet("font-size: 22px; font-weight: bold;")
-
-        self.status = QLabel("Connexion à l'API Robnite...")
-        self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status.setStyleSheet("font-size: 14px; color: #a0a3ae;")
-
-        self.progress = QProgressBar()
-        self.progress.setValue(0)
-
-        self.patch_title = QLabel("Patch notes")
-        self.patch_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #ffb02e;")
-
-        self.patch_notes = QLabel("Aucune note pour le moment.")
-        self.patch_notes.setWordWrap(True)
-        self.patch_notes.setStyleSheet("font-size: 13px; color: #d0d2dc;")
-
-        layout.addWidget(self.title)
-        layout.addWidget(self.status)
-        layout.addWidget(self.progress)
-        layout.addWidget(self.patch_title)
-        layout.addWidget(self.patch_notes)
-
-        self.setLayout(layout)
-
-    def set_status(self, text):
-        self.status.setText(text)
-        QApplication.processEvents()
-
-    def set_progress(self, value):
-        self.progress.setValue(value)
-        QApplication.processEvents()
-
-    def set_patch_notes(self, notes):
-        if isinstance(notes, list):
-            self.patch_notes.setText("\n".join(["• " + str(n) for n in notes]))
-        elif isinstance(notes, str):
-            self.patch_notes.setText(notes)
-        else:
-            self.patch_notes.setText("Aucune note pour cette version.")
-        QApplication.processEvents()
-
-
-def create_exe_update_bat(new_exe_path, current_exe_path):
-    bat_path = data_path("update_launcher.bat")
-
-    bat_content = f"""
-@echo off
-timeout /t 2 /nobreak > nul
-taskkill /f /im "{os.path.basename(current_exe_path)}" > nul 2>&1
-timeout /t 1 /nobreak > nul
-copy /y "{new_exe_path}" "{current_exe_path}"
-start "" "{current_exe_path}"
-del "{new_exe_path}" > nul 2>&1
-del "%~f0" > nul 2>&1
-"""
-
-    with open(bat_path, "w", encoding="utf-8") as f:
-        f.write(bat_content)
-
-    subprocess.Popen(
-        ["cmd", "/c", bat_path],
-        cwd=appdata_dir(),
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    )
-
-    sys.exit()
-
-
-def download_with_progress(url, target, headers=None, progress_callback=None, start_percent=0, end_percent=100):
-    headers = headers or {}
-
-    with requests.get(url, headers=headers, stream=True, timeout=60) as response:
-        if response.status_code != 200:
-            raise Exception(f"Erreur download {response.status_code}")
-
-        total = int(response.headers.get("content-length", 0))
-        downloaded = 0
-
-        with open(target, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-
-                    if total > 0 and progress_callback:
-                        ratio = downloaded / total
-                        percent = int(start_percent + (end_percent - start_percent) * ratio)
-                        progress_callback(percent)
-
-    if progress_callback:
-        progress_callback(end_percent)
-
-
-def check_for_updates(update_window=None):
-    try:
-        local_data = load_local_version()
-        local_version = local_data.get("version", "1.0.0")
-        local_exe_version = local_data.get("exe_version", "1.0.0")
-
-        if update_window:
-            update_window.title.setText("Recherche de mise à jour...")
-            update_window.set_status("Connexion à l'API Robnite...")
-            update_window.set_progress(5)
-
-        r = requests.get(
-            API_BASE_URL + "/version",
-            headers={"X-API-KEY": API_KEY},
-            timeout=15
-        )
-
-        if r.status_code != 200:
-            print("Erreur API version:", r.status_code)
-            if update_window:
-                update_window.set_status("Impossible de contacter l'API. Lancement normal...")
-                update_window.set_progress(100)
-                time.sleep(1)
-            return False
-
-        data = r.json()
-
-        online_version = data.get("version", local_version)
-        files_data = data.get("files", {})
-        patch_notes = data.get("patch_notes", [])
-        exe_data = data.get("exe", {})
-
-        if update_window:
-            update_window.set_patch_notes(patch_notes)
-
-        exe_updated = False
-
-        if isinstance(exe_data, dict):
-            online_exe_version = exe_data.get("version", local_exe_version)
-            exe_url = exe_data.get("url", "")
-
-            if online_exe_version != local_exe_version and exe_url:
-                if getattr(sys, "frozen", False):
-                    if update_window:
-                        update_window.title.setText("Mise à jour du launcher...")
-                        update_window.set_status("Téléchargement du nouveau .exe...")
-                        update_window.set_progress(10)
-
-                    new_exe_path = data_path("Robnite_new.exe")
-                    current_exe_path = sys.executable
-
-                    download_with_progress(
-                        exe_url,
-                        new_exe_path,
-                        headers={"X-API-KEY": API_KEY},
-                        progress_callback=lambda p: update_window.set_progress(p) if update_window else None,
-                        start_percent=10,
-                        end_percent=95
-                    )
-
-                    save_local_exe_version(online_exe_version)
-
-                    if update_window:
-                        update_window.set_status("Installation du nouveau launcher...")
-                        update_window.set_progress(100)
-                        time.sleep(1)
-
-                    create_exe_update_bat(new_exe_path, current_exe_path)
-
-                else:
-                    print("Update .exe ignorée en mode Python.")
-                    save_local_exe_version(online_exe_version)
-
-        if online_version == local_version:
-            if update_window:
-                update_window.title.setText("Launcher à jour")
-                update_window.set_status("Aucune mise à jour disponible.")
-                update_window.set_progress(100)
-                time.sleep(0.8)
-            return False
-
-        if update_window:
-            update_window.title.setText("Mise à jour en cours...")
-            update_window.set_status("Téléchargement des fichiers...")
-            update_window.set_progress(10)
-
-        if isinstance(files_data, dict):
-            files = list(files_data.keys())
-        else:
-            files = files_data
-
-        if not files:
-            save_local_version(online_version)
-            return False
-
-        total_files = len(files)
-
-        for index, filename in enumerate(files):
-            if isinstance(files_data, dict):
-                download_url = files_data[filename]
-            else:
-                download_url = API_BASE_URL + "/download/" + filename
-
-            target = data_path(filename)
-
-            if update_window:
-                update_window.set_status(f"Téléchargement : {filename}")
-
-            if os.path.exists(target):
-                try:
-                    os.remove(target)
-                    print("Ancien fichier supprimé:", filename)
-                except Exception as e:
-                    print("Impossible de supprimer l'ancien fichier:", filename, e)
-
-            start_p = 10 + int((index / total_files) * 80)
-            end_p = 10 + int(((index + 1) / total_files) * 80)
-
-            download_with_progress(
-                download_url,
-                target,
-                headers={"X-API-KEY": API_KEY},
-                progress_callback=lambda p: update_window.set_progress(p) if update_window else None,
-                start_percent=start_p,
-                end_percent=end_p
-            )
-
-            print("Fichier mis à jour:", filename)
-
-        save_local_version(online_version)
-
-        if update_window:
-            update_window.set_status("Mise à jour terminée. Redémarrage...")
-            update_window.set_progress(100)
-            time.sleep(1)
-
-        return True
-
-    except Exception as e:
-        print("Erreur update API:", e)
-        if update_window:
-            update_window.set_status("Erreur update. Lancement normal...")
-            update_window.set_progress(100)
-            time.sleep(1)
-        return False
-
-
-class Backend(QObject):
-    progressChanged = pyqtSignal()
-    loadingFinished = pyqtSignal()
-    authDone = pyqtSignal()
-    userNameChanged = pyqtSignal()
-    userAvatarChanged = pyqtSignal()
-    gameStateChanged = pyqtSignal()
-
-    def __init__(self):
-        super().__init__()
-        self._progress = 0
-        self._user_name = "Invité"
-        self._user_avatar = ""
-        self.game_path = r"D:\1.11\1.11\FortniteGame\Binaries\Win64\Launcher.bat"
-
-        if not self.load_save_and_check():
-            threading.Thread(target=self.run_auth_server, daemon=True).start()
-            webbrowser.open(
-                f"https://discord.com/api/oauth2/authorize?"
-                f"client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}"
-                f"&response_type=code&scope=identify"
-            )
-        else:
-            QTimer.singleShot(1000, self.trigger_success_visuals)
-
-    def load_save_and_check(self):
-        path = data_path(CONFIG_FILE)
-
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                last_login = datetime.strptime(data["last_login"], "%Y-%m-%d %H:%M:%S")
-
-                if datetime.now() - last_login > timedelta(days=5):
-                    return False
-
-                self._user_name = data["username"]
-                self._user_avatar = data["avatar"]
-                self.userNameChanged.emit()
-                self.userAvatarChanged.emit()
-                return True
-
-            except Exception:
-                return False
-
-        return False
-
-    def save_user(self, username, avatar):
-        data = {
-            "username": username,
-            "avatar": avatar,
-            "last_login": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        z: -1
+
+        gradient: Gradient {
+            GradientStop { id: gradStop1; position: 0.0; color: "#0b0d13" }
+            GradientStop { id: gradStop2; position: 1.0; color: selectedTheme === "Ocean" ? "#06233a" : "#1a0b2e" }
         }
 
-        with open(data_path(CONFIG_FILE), "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        SequentialAnimation {
+            running: true
+            loops: Animation.Infinite
 
-    def run_auth_server(self):
-        @app_flask.route("/")
-        def callback():
-            code = request.args.get("code")
-
-            if code and self.fetch_discord_data(code):
-                QTimer.singleShot(0, self.trigger_success_visuals)
-                return "Authentification réussie ! Tu peux fermer cette page."
-
-            return "Erreur d'authentification."
-
-        app_flask.run(port=5000)
-
-    def fetch_discord_data(self, code):
-        try:
-            data = {
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": REDIRECT_URI
+            ParallelAnimation {
+                ColorAnimation { target: gradStop1; property: "color"; to: "#12141d"; duration: 5000; easing.type: Easing.InOutQuad }
+                ColorAnimation { target: gradStop2; property: "color"; to: selectedTheme === "Ocean" ? "#0a3554" : "#250d42"; duration: 5000; easing.type: Easing.InOutQuad }
             }
+            ParallelAnimation {
+                ColorAnimation { target: gradStop1; property: "color"; to: "#1a0b2e"; duration: 5000; easing.type: Easing.InOutQuad }
+                ColorAnimation { target: gradStop2; property: "color"; to: "#0b0d13"; duration: 5000; easing.type: Easing.InOutQuad }
+            }
+        }
+    }
 
-            r = requests.post("https://discord.com/api/oauth2/token", data=data).json()
-            token = r.get("access_token")
+    RowLayout {
+        anchors.fill: parent
+        spacing: 0
 
-            u = requests.get(
-                "https://discord.com/api/users/@me",
-                headers={"Authorization": f"Bearer {token}"}
-            ).json()
+        Rectangle {
+            width: 75
+            Layout.fillHeight: true
+            color: "#0e1017"
+            border.color: "#1e212d"
+            opacity: 0.98
 
-            self._user_name = u.get("username", "Utilisateur")
-            user_id = u.get("id")
-            avatar = u.get("avatar")
+            Column {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 22
+                y: 25
 
-            if user_id and avatar:
-                self._user_avatar = f"https://cdn.discordapp.com/avatars/{user_id}/{avatar}.png"
-            else:
-                self._user_avatar = ""
+                Text {
+                    text: "Era"
+                    color: "white"
+                    font.bold: true
+                    font.pixelSize: 18
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
 
-            self.save_user(self._user_name, self._user_avatar)
+                Rectangle { width: 45; height: 1; color: "#1e212d" }
 
-            self.userNameChanged.emit()
-            self.userAvatarChanged.emit()
-            return True
+                Repeater {
+                    model: [
+                        { icon: "⚠️", index: 0 },
+                        { icon: "👤", index: 0 },
+                        { icon: "🏠", index: 0 },
+                        { icon: "🎮", index: 1 },
+                        { icon: "📁", index: 2 },
+                        { icon: "🛒", index: 3 },
+                        { icon: "📜", index: 4 },
+                        { icon: "⚙️", index: 5 }
+                    ]
 
-        except Exception:
-            return False
+                    Rectangle {
+                        width: 45
+                        height: 45
+                        radius: 12
+                        color: mainStack.currentIndex === modelData.index ? "#25245c" : "transparent"
+                        border.color: mainStack.currentIndex === modelData.index ? "#7045ff" : "transparent"
+                        scale: navMouse.containsMouse ? 1.05 : 1.0
 
-    @pyqtProperty(str, notify=userNameChanged)
-    def userName(self):
-        return self._user_name
+                        Text {
+                            text: modelData.icon
+                            anchors.centerIn: parent
+                            font.pixelSize: 20
+                            color: "white"
+                        }
 
-    @pyqtProperty(str, notify=userAvatarChanged)
-    def userAvatar(self):
-        return self._user_avatar
+                        MouseArea {
+                            id: navMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: mainStack.currentIndex = modelData.index
+                        }
+                    }
+                }
 
-    @pyqtProperty(bool, notify=gameStateChanged)
-    def isGameInstalled(self):
-        return os.path.exists(self.game_path)
+                Item { height: 45 }
 
-    @pyqtProperty(float, notify=progressChanged)
-    def loadProgress(self):
-        return self._progress
+                Rectangle {
+                    width: 45
+                    height: 45
+                    radius: 12
+                    visible: window.isInstalling
+                    color: "#25245c"
+                    border.color: "#7045ff"
 
-    @pyqtSlot()
-    def trigger_success_visuals(self):
-        self.authDone.emit()
-        QTimer.singleShot(2000, self.start_loading)
+                    Text {
+                        anchors.centerIn: parent
+                        text: "⇩"
+                        color: "#7d7cff"
+                        font.pixelSize: 24
+                        font.bold: true
+                    }
 
-    def start_loading(self):
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.advance_progress)
-        self.timer.start(20)
-
-    def advance_progress(self):
-        if self._progress < 100:
-            self._progress += 2
-            self.progressChanged.emit()
-        else:
-            self.timer.stop()
-            self.loadingFinished.emit()
-
-    @pyqtSlot()
-    def launchGame(self):
-        if os.path.exists(self.game_path):
-            subprocess.Popen([self.game_path], cwd=os.path.dirname(self.game_path), shell=True)
-
-    @pyqtSlot()
-    def downloadGame(self):
-        webbrowser.open("TON_LIEN_DE_TELECHARGEMENT_ICI")
-
-    @pyqtSlot()
-    def openFolder(self):
-        folder = os.path.dirname(self.game_path)
-        if os.path.exists(folder):
-            os.startfile(folder)
-
-    @pyqtSlot(result=str)
-    def chooseInstallFolder(self):
-        folder = QFileDialog.getExistingDirectory(None, "Choisir le dossier d'installation")
-        return folder.replace("/", "\\") if folder else ""
-
-    @pyqtSlot(result=str)
-    def chooseImportFolder(self):
-        folder = QFileDialog.getExistingDirectory(None, "Importer une version")
-        return folder.replace("/", "\\") if folder else ""
-
-    @pyqtSlot(str)
-    def importBuildFromPath(self, path):
-        print("Build importé depuis:", path)
-
-    @pyqtSlot(str, str)
-    def startInstallToPath(self, build_name, install_path):
-        print("Installation de", build_name, "dans", install_path)
-
-    @pyqtSlot()
-    def cancelInstall(self):
-        print("Installation annulée")
-
-    @pyqtSlot(str, str, int)
-    def saveLauncherSettings(self, install_path, selected_build, elapsed_seconds):
-        data = {
-            "install_path": install_path,
-            "selected_build": selected_build,
-            "elapsed_seconds": elapsed_seconds
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: mainStack.currentIndex = 1
+                    }
+                }
+            }
         }
 
-        with open(data_path("launcher_settings.json"), "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.margins: 32
+            spacing: 20
 
-    @pyqtSlot()
-    def logout(self):
-        path = data_path(CONFIG_FILE)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
 
-        if os.path.exists(path):
-            os.remove(path)
+                Text {
+                    id: headerTitle
+                    text:
+                        mainStack.currentIndex === 0 ? "Home" :
+                        mainStack.currentIndex === 1 ? "Library" :
+                        mainStack.currentIndex === 2 ? "Build Manager" :
+                        mainStack.currentIndex === 3 ? "Shop" :
+                        mainStack.currentIndex === 4 ? "Logs" :
+                        "Settings"
+                    color: "white"
+                    font.pixelSize: 32
+                    font.bold: true
+                }
 
-        sys.exit()
+                Item { Layout.fillWidth: true }
 
+                Rectangle {
+                    width: 150
+                    height: 48
+                    radius: 12
+                    color: "#161923"
+                    border.color: "#2c3040"
 
-def main():
-    os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 10
 
-    app = QApplication(sys.argv)
+                        Text {
+                            text: window.isInstalling ? "◌" : "▶"
+                            color: "white"
+                            font.pixelSize: 18
 
-    prepare_appdata_files()
+                            RotationAnimation on rotation {
+                                running: window.isInstalling
+                                from: 0
+                                to: 360
+                                loops: Animation.Infinite
+                                duration: 900
+                            }
+                        }
 
-    update_window = UpdateWindow()
-    update_window.show()
-    QApplication.processEvents()
+                        Column {
+                            spacing: 1
+                            Text { text: selectedBuild; color: "white"; font.bold: true; font.pixelSize: 12 }
+                            Text { text: "● " + buildStatus; color: window.isInstalling ? "#ffffff" : (window.gameInstalledLocal ? "#42ff8a" : "#ff5f6d"); font.pixelSize: 11 }
+                        }
+                    }
 
-    updated = check_for_updates(update_window)
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (window.gameInstalledLocal) {
+                                window.isLaunching = true
+                                backend.launchGame()
+                            } else if (!window.isInstalling) {
+                                window.showDownloadPopup = true
+                            }
+                        }
+                    }
+                }
 
-    update_window.close()
+                Rectangle {
+                    width: 95
+                    height: 48
+                    radius: 12
+                    color: "#161923"
+                    border.color: "#2c3040"
 
-    if updated:
-        restart_app()
+                    Text {
+                        anchors.centerIn: parent
+                        text: "👥  " + playerCount + " / 0"
+                        color: "white"
+                        font.bold: true
+                    }
+                }
 
-    app.aboutToQuit.connect(cleanup_on_close)
+                Rectangle {
+                    width: 160
+                    height: 48
+                    radius: 12
+                    color: "#161923"
+                    border.color: "#2c3040"
 
-    engine = QQmlApplicationEngine()
-    backend = Backend()
+                    Text {
+                        anchors.centerIn: parent
+                        text: "🟢 " + pingStatus + "   ◷ " + sessionTimer
+                        color: "white"
+                        font.bold: true
+                        font.pixelSize: 12
+                    }
+                }
 
-    engine.rootContext().setContextProperty("backend", backend)
+                Rectangle {
+                    id: profileBox
+                    width: 170
+                    height: 48
+                    radius: 18
+                    color: "#161923"
+                    border.color: window.showProfileMenu ? "#ffb02e" : (profileMouse.containsMouse ? "#7045ff" : "#2c3040")
 
-    splash_file = runtime_file("splash.qml")
-    launcher_file = runtime_file("launcher.qml")
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 10
 
-    engine.load(QUrl.fromLocalFile(splash_file))
+                        Rectangle {
+                            width: 32
+                            height: 32
+                            radius: 16
+                            clip: true
+                            color: "#0b0d13"
 
-    def show_main():
-        if engine.rootObjects():
-            engine.rootObjects()[0].close()
+                            Image {
+                                anchors.fill: parent
+                                source: backend.userAvatar
+                                fillMode: Image.PreserveAspectCrop
+                            }
+                        }
 
-        engine.load(QUrl.fromLocalFile(launcher_file))
+                        Column {
+                            Text { text: backend.userName; color: "white"; font.bold: true; font.pixelSize: 13 }
+                            Text { text: "Member"; color: "#a0a3ae"; font.pixelSize: 11 }
+                        }
 
-    backend.loadingFinished.connect(show_main)
+                        Text { text: window.showProfileMenu ? "⌃" : "⌄"; color: "#a0a3ae"; font.pixelSize: 14 }
+                    }
 
-    if not engine.rootObjects():
-        sys.exit(-1)
+                    MouseArea {
+                        id: profileMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: window.showProfileMenu = !window.showProfileMenu
+                    }
+                }
+            }
 
-    sys.exit(app.exec())
+            StackLayout {
+                id: mainStack
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: 0
 
+                ColumnLayout {
+                    spacing: 22
 
-if __name__ == "__main__":
-    main()
+                    Text {
+                        text: "Play now, " + backend.userName + "!"
+                        color: "white"
+                        font.pixelSize: 22
+                        font.bold: true
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 280
+                        radius: 20
+                        color: "#ff7418"
+                        clip: true
+
+                        Image {
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: parent.width * 0.52
+                            source: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg"
+                            fillMode: Image.PreserveAspectCrop
+                            opacity: 0.75
+                        }
+
+                        Column {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 35
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 14
+
+                            Text { text: "Project Robnite"; color: "#fff36a"; font.bold: true; font.pixelSize: 18 }
+                            Text { text: "Fortnite 3.0 - Saison 3"; color: "#fff36a"; font.bold: true; font.pixelSize: 38 }
+
+                            Text {
+                                width: 440
+                                text: "Launcher avec téléchargement, importation, sauvegarde automatique et gestion de builds."
+                                color: "#4a3414"
+                                font.bold: true
+                                font.pixelSize: 15
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Button {
+                                width: 150
+                                height: 46
+                                contentItem: Text {
+                                    text: window.isInstalling ? "INSTALL..." : (window.gameInstalledLocal ? "▶ Play" : "⬇ Install")
+                                    color: "#ff7418"
+                                    font.bold: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                background: Rectangle {
+                                    color: "white"
+                                    radius: 10
+                                }
+                                onClicked: {
+                                    if (window.gameInstalledLocal) {
+                                        window.isLaunching = true
+                                        backend.launchGame()
+                                    } else if (!window.isInstalling) {
+                                        window.showDownloadPopup = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text { text: "What's new"; color: "white"; font.pixelSize: 22; font.bold: true }
+                        Item { Layout.fillWidth: true }
+                        Text { text: newsPage + " / 3"; color: "#a0a3ae"; font.pixelSize: 14 }
+
+                        Button {
+                            width: 90
+                            height: 36
+                            contentItem: Text {
+                                text: unreadNews + " unread"
+                                color: "white"
+                                font.bold: true
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            background: Rectangle { color: "#25245c"; radius: 12; border.color: "#7045ff" }
+                            onClicked: unreadNews = 0
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 18
+
+                        Repeater {
+                            model: [
+                                { title: "CONTENT UPDATE #4", date: "13/04/2026", img: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg" },
+                                { title: "CONTENT UPDATE #3", date: "21/03/2026", img: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg" }
+                            ]
+
+                            Rectangle {
+                                width: 430
+                                height: 125
+                                radius: 12
+                                color: "#161923"
+                                clip: true
+                                border.color: "#1e212d"
+
+                                Row {
+                                    anchors.fill: parent
+
+                                    Image {
+                                        width: 180
+                                        height: parent.height
+                                        source: modelData.img
+                                        fillMode: Image.PreserveAspectCrop
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 10
+                                        width: 220
+                                        leftPadding: 14
+
+                                        Text { text: modelData.title; color: "white"; font.bold: true; font.pixelSize: 16 }
+                                        Text { text: "Challenges and launcher features added."; color: "#a0a3ae"; wrapMode: Text.WordWrap; width: 210; font.pixelSize: 12 }
+                                        Text { text: modelData.date; color: "white"; font.bold: true; font.pixelSize: 11 }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+
+                Flickable {
+                    contentHeight: libraryContent.height
+                    clip: true
+
+                    Column {
+                        id: libraryContent
+                        width: parent.width
+                        spacing: 35
+
+                        RowLayout {
+                            width: parent.width
+                            Text { text: "Manage your game builds"; color: "#a0a3ae"; font.pixelSize: 15 }
+                            Item { Layout.fillWidth: true }
+                            Button {
+                                width: 120
+                                height: 34
+                                contentItem: Text { text: "Open Logs"; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                background: Rectangle { color: "#161923"; radius: 10; border.color: "#2c3040" }
+                                onClicked: mainStack.currentIndex = 4
+                            }
+                        }
+
+                        RowLayout {
+                            width: parent.width
+                            Text { text: "Installed"; color: "white"; font.bold: true; font.pixelSize: 22 }
+                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                width: 70
+                                height: 26
+                                radius: 13
+                                color: "#161923"
+                                border.color: "#2c3040"
+                                Text { anchors.centerIn: parent; text: window.isInstalling ? "2 builds" : "1 build"; color: "#8a8d98"; font.pixelSize: 12 }
+                            }
+                        }
+
+                        Row {
+                            spacing: 14
+
+                            Rectangle {
+                                width: 180
+                                height: 245
+                                radius: 4
+                                color: "#161923"
+                                border.color: "#7045ff"
+                                clip: true
+
+                                Image {
+                                    anchors.fill: parent
+                                    source: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg"
+                                    fillMode: Image.PreserveAspectCrop
+                                    opacity: 0.55
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    gradient: Gradient {
+                                        GradientStop { position: 0.0; color: "transparent" }
+                                        GradientStop { position: 1.0; color: "#000000" }
+                                    }
+                                }
+
+                                Text { anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.leftMargin: 12; anchors.bottomMargin: 35; text: "Fortnite 1.11"; color: "white"; font.bold: true; font.pixelSize: 15 }
+                                Text { anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.leftMargin: 12; anchors.bottomMargin: 18; text: "1.11-CL-3807424"; color: "white"; font.pixelSize: 11 }
+                            }
+
+                            Rectangle {
+                                width: 380
+                                height: 245
+                                radius: 4
+                                color: "#252638"
+                                border.color: "#7045ff"
+                                visible: window.isInstalling
+                                clip: true
+
+                                Row {
+                                    anchors.fill: parent
+
+                                    Rectangle {
+                                        width: 230
+                                        height: parent.height
+                                        color: "#a56100"
+                                        clip: true
+
+                                        Image {
+                                            anchors.fill: parent
+                                            source: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg"
+                                            fillMode: Image.PreserveAspectCrop
+                                            opacity: 0.8
+                                        }
+
+                                        Rectangle {
+                                            anchors.centerIn: parent
+                                            width: 70
+                                            height: 70
+                                            radius: 35
+                                            color: "#00000066"
+                                            border.color: "white"
+                                            border.width: 2
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: installProgress + "%"
+                                                color: "white"
+                                                font.bold: true
+                                                font.pixelSize: 18
+                                            }
+
+                                            RotationAnimation on rotation {
+                                                running: window.isInstalling
+                                                from: 0
+                                                to: 360
+                                                loops: Animation.Infinite
+                                                duration: 900
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 150
+                                        height: parent.height
+                                        color: "#252638"
+
+                                        Column {
+                                            anchors.fill: parent
+                                            anchors.margins: 16
+                                            spacing: 13
+
+                                            Rectangle {
+                                                width: 105
+                                                height: 25
+                                                radius: 7
+                                                color: "#3a3d52"
+                                                Text { anchors.centerIn: parent; text: "● DOWNLOADING"; color: "white"; font.bold: true; font.pixelSize: 10 }
+                                            }
+
+                                            Text { text: downloadName; color: "white"; font.bold: true; font.pixelSize: 18 }
+                                            Text { text: downloadBuild; color: "#d0d2dc"; font.pixelSize: 13 }
+
+                                            Text { text: "DL:              " + downloadedGB.toFixed(2) + " GB"; color: "white"; font.bold: true; font.pixelSize: 12 }
+                                            Text { text: "Speed:     379.9 Mbps"; color: "#7d7cff"; font.pixelSize: 12 }
+
+                                            Rectangle { width: parent.width; height: 1; color: "#3a3d52" }
+
+                                            Text { text: "Files:          " + downloadedFiles + " / 417"; color: "#d0d2dc"; font.bold: true; font.pixelSize: 12 }
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.margins: 14
+                                    width: 34
+                                    height: 34
+                                    radius: 17
+                                    color: "#ef5350"
+
+                                    Text { anchors.centerIn: parent; text: "×"; color: "white"; font.pixelSize: 24 }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: window.cancelInstall()
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: importCard
+                                width: 180
+                                height: 245
+                                radius: 4
+                                color: "#161923"
+                                border.color: importMouse.containsMouse ? "#7045ff" : "#2c3040"
+                                border.width: 2
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 12
+
+                                    Rectangle {
+                                        width: 58
+                                        height: 58
+                                        radius: 29
+                                        color: "#252b36"
+                                        Text { anchors.centerIn: parent; text: "+"; color: "#b5b8c5"; font.bold: true; font.pixelSize: 34 }
+                                    }
+
+                                    Text { text: "Import from Disk"; color: "white"; font.bold: true; font.pixelSize: 15; anchors.horizontalCenter: parent.horizontalCenter }
+                                    Text { text: "Add existing build"; color: "#d0d2dc"; font.pixelSize: 12; anchors.horizontalCenter: parent.horizontalCenter }
+                                }
+
+                                MouseArea {
+                                    id: importMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: window.importBuild()
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            width: parent.width
+                            Text { text: "Available Downloads"; color: "white"; font.bold: true; font.pixelSize: 22 }
+                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                width: 90
+                                height: 26
+                                radius: 13
+                                color: "#161923"
+                                border.color: "#2c3040"
+                                Text { anchors.centerIn: parent; text: "1 available"; color: "#8a8d98"; font.pixelSize: 12 }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 180
+                            height: 245
+                            radius: 4
+                            color: "#ff8a00"
+                            border.color: "#7045ff"
+                            visible: !window.isInstalling
+                            clip: true
+
+                            Image {
+                                anchors.fill: parent
+                                source: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg"
+                                fillMode: Image.PreserveAspectCrop
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                color: downloadMouse.containsMouse ? "#00000066" : "transparent"
+                            }
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 58
+                                height: 58
+                                radius: 29
+                                color: "#ffffff66"
+                                visible: downloadMouse.containsMouse
+
+                                Text { anchors.centerIn: parent; text: "⇩"; color: "white"; font.pixelSize: 32; font.bold: true }
+                            }
+
+                            Text { anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.leftMargin: 12; anchors.bottomMargin: 35; text: downloadName; color: "white"; font.bold: true; font.pixelSize: 15 }
+                            Text { anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.leftMargin: 12; anchors.bottomMargin: 18; text: downloadBuild; color: "white"; font.pixelSize: 11 }
+
+                            MouseArea {
+                                id: downloadMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: window.showDownloadPopup = true
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 18
+                    Text { text: "Manage your game builds"; color: "#a0a3ae"; font.pixelSize: 15 }
+                    Text { text: "Current Build"; color: "white"; font.pixelSize: 22; font.bold: true }
+                    Text { text: "Status: " + buildStatus; color: window.isInstalling ? "#ffaa33" : "#a0a3ae"; font.pixelSize: 15 }
+                    Text { text: "Install Location: " + installLocation; color: "#a0a3ae"; font.pixelSize: 15 }
+                    Text { text: "Session time: " + sessionTimer; color: "#a0a3ae"; font.pixelSize: 15 }
+                    Item { Layout.fillHeight: true }
+                }
+
+                ColumnLayout {
+                    spacing: 24
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 360
+                        radius: 22
+                        color: "#8d63ff"
+                        Text { anchors.centerIn: parent; text: "Founder"; color: "white"; font.bold: true; font.pixelSize: 54 }
+                    }
+                    Item { Layout.fillHeight: true }
+                }
+
+                ColumnLayout {
+                    spacing: 16
+                    Text { text: "Launcher Logs"; color: "white"; font.pixelSize: 22; font.bold: true }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: 16
+                        color: "#080a10"
+                        border.color: "#1e212d"
+
+                        Text {
+                            anchors.fill: parent
+                            anchors.margins: 18
+                            color: "#a0ffb0"
+                            font.family: "Consolas"
+                            font.pixelSize: 13
+                            text:
+                                "[INFO] Robnite Launcher started\n" +
+                                "[INFO] User loaded: " + backend.userName + "\n" +
+                                "[INFO] Build selected: " + selectedBuild + "\n" +
+                                "[INFO] Status: " + buildStatus + "\n" +
+                                "[INFO] Install location: " + installLocation + "\n" +
+                                "[INFO] Session time: " + sessionTimer + "\n" +
+                                "[READY] Waiting for action..."
+                        }
+                    }
+                }
+
+                RowLayout {
+                    spacing: 24
+
+                    Rectangle {
+                        width: 280
+                        Layout.fillHeight: true
+                        radius: 12
+                        color: "#161923"
+                        border.color: "#2c3040"
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 18
+                            spacing: 14
+
+                            Text { text: "PROFILE"; color: "#71788a"; font.bold: true; font.pixelSize: 11 }
+                            SettingsMenuButton { textValue: "👤  Account"; selected: settingsIndex === 0; onClicked: settingsIndex = 0 }
+                            SettingsMenuButton { textValue: "🛍  Purchases"; selected: settingsIndex === 1; onClicked: settingsIndex = 1 }
+                            Text { text: "GAME"; color: "#71788a"; font.bold: true; font.pixelSize: 11; topPadding: 10 }
+                            SettingsMenuButton { textValue: "💾  Builds"; selected: settingsIndex === 2; onClicked: settingsIndex = 2 }
+                            Text { text: "PREFERENCES"; color: "#71788a"; font.bold: true; font.pixelSize: 11; topPadding: 10 }
+                            SettingsMenuButton { textValue: "🎨  Appearance"; selected: settingsIndex === 3; onClicked: settingsIndex = 3 }
+                            Rectangle { width: parent.width; height: 1; color: "#252b36" }
+                            SettingsMenuButton { textValue: "🚪  Log out"; selected: false; onClicked: backend.logout() }
+                            Text { text: "era-launcher/latest\nStable 3.0.9\nMade with ❤ by benjamin"; color: "#4f5668"; font.pixelSize: 12; lineHeight: 1.25 }
+                        }
+                    }
+
+                    StackLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: settingsIndex
+
+                        ColumnLayout {
+                            spacing: 14
+                            Text { text: "Account"; color: "white"; font.bold: true; font.pixelSize: 22 }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 78
+                                radius: 8
+                                color: "#161923"
+                                border.color: "#2c3040"
+                                Row {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 16
+                                    spacing: 12
+                                    Rectangle { width: 48; height: 48; radius: 24; clip: true; Image { anchors.fill: parent; source: backend.userAvatar; fillMode: Image.PreserveAspectCrop } }
+                                    Column { anchors.verticalCenter: parent.verticalCenter; Text { text: backend.userName; color: "white"; font.bold: true; font.pixelSize: 16 } Text { text: "Member  • Online"; color: "#5ca8ff"; font.pixelSize: 12 } }
+                                }
+                            }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 72; radius: 8; color: "#161923"; border.color: "#2c3040"; RowLayout { anchors.fill: parent; anchors.margins: 16; Column { Text { text: "ACCOUNT ID"; color: "#71788a"; font.pixelSize: 11; font.bold: true } Text { text: "5496fa30-f915-437f-8d80-00d61e5ec444"; color: "#bfc5d2"; font.pixelSize: 13 } } Item { Layout.fillWidth: true } Column { Text { text: "USERNAME"; color: "#71788a"; font.pixelSize: 11; font.bold: true } Text { text: backend.userName; color: "white"; font.pixelSize: 13; font.bold: true } } } }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 64; radius: 8; color: "#161923"; border.color: "#2c3040"; Text { anchors.centerIn: parent; text: "Username changes require the Name Change perk"; color: "#71788a"; font.pixelSize: 12 } }
+                            Item { Layout.fillHeight: true }
+                        }
+
+                        ColumnLayout {
+                            spacing: 14
+                            Text { text: "Purchases"; color: "white"; font.bold: true; font.pixelSize: 22 }
+                            Text { text: "Owned Products"; color: "white"; font.bold: true; font.pixelSize: 16 }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 170; radius: 8; color: "#161923"; border.color: "#2c3040"; Column { anchors.centerIn: parent; spacing: 10; Text { text: "🏷"; color: "#687083"; font.pixelSize: 36; anchors.horizontalCenter: parent.horizontalCenter } Text { text: "No products yet"; color: "#bfc5d2"; font.bold: true; font.pixelSize: 18; anchors.horizontalCenter: parent.horizontalCenter } Text { text: "Visit the store to browse available products"; color: "#71788a"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter } } }
+                            Text { text: "Active Perks"; color: "white"; font.bold: true; font.pixelSize: 16 }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 210; radius: 8; color: "#161923"; border.color: "#2c3040"; Column { anchors.centerIn: parent; spacing: 10; Text { text: "✿"; color: "#687083"; font.pixelSize: 36; anchors.horizontalCenter: parent.horizontalCenter } Text { text: "No active perks"; color: "#bfc5d2"; font.bold: true; font.pixelSize: 18; anchors.horizontalCenter: parent.horizontalCenter } Text { text: "Purchase products to unlock special perks and features"; color: "#71788a"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter } } }
+                            Item { Layout.fillHeight: true }
+                        }
+
+                        ColumnLayout {
+                            spacing: 14
+                            Text { text: "Builds"; color: "white"; font.bold: true; font.pixelSize: 22 }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 64; radius: 8; color: "#161923"; border.color: "#2c3040"; RowLayout { anchors.fill: parent; anchors.margins: 12; Text { text: window.gameInstalledLocal ? "💾  19.0 GB used\n1 build" : "💾  No builds installed"; color: "white"; font.bold: true; font.pixelSize: 13 } Item { Layout.fillWidth: true } Button { width: 135; height: 36; contentItem: Text { text: "🗑 Clear All Data"; color: "#ff7777"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter } background: Rectangle { color: "#5a2632"; radius: 7 } onClicked: if (backend.clearAllData) backend.clearAllData() } } }
+                            Text { text: "Installed Builds"; color: "white"; font.bold: true; font.pixelSize: 16 }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 145; radius: 8; color: "#161923"; border.color: "#2c3040"; visible: !window.gameInstalledLocal; Column { anchors.centerIn: parent; spacing: 10; Text { text: "💾"; color: "#687083"; font.pixelSize: 36; anchors.horizontalCenter: parent.horizontalCenter } Text { text: "No builds installed"; color: "#bfc5d2"; font.bold: true; font.pixelSize: 18; anchors.horizontalCenter: parent.horizontalCenter } Text { text: "Visit the library to download game builds"; color: "#71788a"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter } } }
+                            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 70; radius: 8; color: "#161923"; border.color: "#2c3040"; visible: window.gameInstalledLocal; RowLayout { anchors.fill: parent; anchors.margins: 14; Column { Text { text: "Fortnite 1.11"; color: "white"; font.bold: true; font.pixelSize: 15 } Text { text: "Build 1.11-CL-3807424  •  19 GB"; color: "#a0a3ae"; font.pixelSize: 12 } } Item { Layout.fillWidth: true } Button { width: 70; height: 32; contentItem: Text { text: "📂 Open"; color: "white"; font.bold: true; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter } background: Rectangle { color: "#25245c"; radius: 7 } onClicked: backend.openFolder() } Button { width: 80; height: 32; contentItem: Text { text: "🗑 Remove"; color: "#ff7777"; font.bold: true; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter } background: Rectangle { color: "#5a2632"; radius: 7 } onClicked: if (backend.removeBuild) backend.removeBuild() } } }
+                            Item { Layout.fillHeight: true }
+                        }
+
+                        Flickable {
+                            contentHeight: appearanceContent.height
+                            clip: true
+                            Column {
+                                id: appearanceContent
+                                width: parent.width
+                                spacing: 14
+                                Text { text: "Appearance"; color: "white"; font.bold: true; font.pixelSize: 22 }
+                                Rectangle {
+                                    width: parent.width
+                                    height: 560
+                                    radius: 8
+                                    color: "#160d2c"
+                                    border.color: "#4c3578"
+                                    Column {
+                                        anchors.fill: parent
+                                        anchors.margins: 16
+                                        spacing: 14
+                                        Text { text: "Preset Themes"; color: "white"; font.bold: true; font.pixelSize: 20 }
+                                        Text { text: "Choose from our collection of beautifully crafted themes to personalize your launcher."; color: "#a0a3ae"; font.pixelSize: 13 }
+                                        Grid {
+                                            columns: 3
+                                            spacing: 14
+                                            Repeater {
+                                                model: ["Default", "Crimson Moon", "Forest", "Ocean", "Sunset", "Midnight", "Chroma Glow", "Neon City", "Toxic", "Amber Flame", "Arctic"]
+                                                Rectangle {
+                                                    width: 190
+                                                    height: 105
+                                                    radius: 8
+                                                    color: index === 0 ? "#14142c" : "#1b1730"
+                                                    border.color: selectedTheme === modelData ? "#ffb02e" : "#252b36"
+                                                    Row { anchors.centerIn: parent; spacing: 15; Rectangle { width: 34; height: 34; radius: 17; color: index % 2 === 0 ? "#263078" : "#63222b" } Rectangle { width: 34; height: 34; radius: 17; color: "#7045ff"; opacity: index === 0 || modelData === "Ocean" ? 1 : 0.35; Text { anchors.centerIn: parent; text: index === 0 || modelData === "Ocean" ? "" : "🔒"; color: "white" } } Rectangle { width: 34; height: 34; radius: 17; color: index % 3 === 0 ? "#0b7285" : "#5f5f23" } }
+                                                    Text { anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.leftMargin: 10; anchors.bottomMargin: 8; text: modelData; color: "#d0d2dc"; font.bold: true; font.pixelSize: 12 }
+                                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (index === 0 || modelData === "Ocean") selectedTheme = modelData } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        visible: showProfileMenu
+        z: 30
+        width: 210
+        height: 145
+        radius: 8
+        x: window.width - width - 40
+        y: 88
+        color: "#111827"
+        border.color: "#3a455c"
+        Column {
+            anchors.fill: parent
+            spacing: 0
+            Row {
+                width: parent.width
+                height: 55
+                leftPadding: 14
+                spacing: 10
+                Rectangle { width: 34; height: 34; radius: 17; anchors.verticalCenter: parent.verticalCenter; clip: true; Image { anchors.fill: parent; source: backend.userAvatar; fillMode: Image.PreserveAspectCrop } }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: backend.userName; color: "white"; font.bold: true; font.pixelSize: 13 }
+            }
+            Rectangle { width: parent.width; height: 1; color: "#2c3040" }
+            Rectangle { width: parent.width; height: 36; color: menuMouse1.containsMouse ? "#1c2435" : "transparent"; Text { anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 16; text: "⚙  Settings"; color: "#d0d2dc"; font.pixelSize: 13; font.bold: true } MouseArea { id: menuMouse1; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { showProfileMenu = false; mainStack.currentIndex = 5; settingsIndex = 0 } } }
+            Rectangle { width: parent.width; height: 36; color: menuMouse2.containsMouse ? "#1c2435" : "transparent"; Text { anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 16; text: "↪  Logout"; color: "#ff6b6b"; font.pixelSize: 13; font.bold: true } MouseArea { id: menuMouse2; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { showProfileMenu = false; backend.logout() } } }
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: window.showDownloadPopup
+        color: "#000000aa"
+        z: 50
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {}
+        }
+
+        Rectangle {
+            width: 460
+            height: 310
+            radius: 10
+            color: "#111827"
+            border.color: "#2c3750"
+            anchors.centerIn: parent
+
+            Column {
+                anchors.fill: parent
+
+                Row {
+                    width: parent.width
+                    height: 120
+                    leftPadding: 20
+                    spacing: 14
+
+                    Rectangle {
+                        width: 78
+                        height: 78
+                        radius: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        clip: true
+                        Image {
+                            anchors.fill: parent
+                            source: "https://static1.millenium.org/articles/2/40/13/22/@/1680037-fortnite-hype-atlas-20-og-ou-article_cover_bd-2.jpg"
+                            fillMode: Image.PreserveAspectCrop
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 7
+                        Text { text: downloadName; color: "white"; font.bold: true; font.pixelSize: 20 }
+                        Text { text: downloadSeason + " • " + downloadBuild; color: "#8a8d98"; font.pixelSize: 13 }
+                        Rectangle {
+                            width: 58
+                            height: 28
+                            radius: 6
+                            color: "#25245c"
+                            border.color: "#7045ff"
+                            Text { anchors.centerIn: parent; text: downloadSize; color: "white"; font.bold: true; font.pixelSize: 12 }
+                        }
+                    }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: "#2c3750" }
+
+                Column {
+                    width: parent.width
+                    spacing: 12
+                    padding: 20
+
+                    Text { text: "DOWNLOAD LOCATION"; color: "#cfd3df"; font.bold: true; font.pixelSize: 12 }
+
+                    Rectangle {
+                        width: parent.width - 40
+                        height: 38
+                        radius: 8
+                        color: "#1b2435"
+                        border.color: pathMouse.containsMouse ? "#8b5cf6" : "#3a455c"
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: 14
+                            anchors.right: changePath.left
+                            anchors.rightMargin: 8
+                            text: "📁  " + installLocation
+                            color: "#aeb4c2"
+                            font.pixelSize: 13
+                            elide: Text.ElideMiddle
+                        }
+
+                        Text {
+                            id: changePath
+                            visible: pathMouse.containsMouse
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: 14
+                            text: "Change"
+                            color: "#8b5cf6"
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
+
+                        MouseArea {
+                            id: pathMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: window.chooseInstallLocation()
+                        }
+                    }
+
+                    Row {
+                        spacing: 10
+
+                        Button {
+                            width: 90
+                            height: 40
+                            contentItem: Text { text: "Cancel"; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            background: Rectangle { color: "#1b2435"; radius: 8; border.color: "#3a455c" }
+                            onClicked: window.showDownloadPopup = false
+                        }
+
+                        Button {
+                            width: 320
+                            height: 40
+                            contentItem: Text { text: "Start Download"; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            background: Rectangle { color: "#6366f1"; radius: 8 }
+                            onClicked: window.startInstall()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    component SettingsMenuButton: Rectangle {
+        signal clicked()
+        property string textValue: ""
+        property bool selected: false
+        width: parent.width
+        height: 42
+        radius: 7
+        color: selected ? "#343a4b" : (btnMouse.containsMouse ? "#202839" : "transparent")
+        border.color: selected ? "#ffb02e" : "transparent"
+        Text { anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 14; text: textValue; color: "#d9dce8"; font.bold: true; font.pixelSize: 13 }
+        MouseArea { id: btnMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+    }
+}
