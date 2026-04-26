@@ -1,5 +1,10 @@
 {
-  "version": " 1.0.0",
+  "version": "1.0.0",
+  "patch_notes": [
+    "Nouvelle interface",
+    "Correction du système de mise à jour",
+    "Ajout de la barre de progression"
+  ],
   "files": {
     "launcher.qml": "https://robnite-api.onrender.com/download/launcher.qml",
     "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
