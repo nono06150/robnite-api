@@ -10,7 +10,7 @@
         "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
     },
     "exe": {
-        "version": "1.0.0",
+        "version": "1.0.1",
         "url": "https://robnite-api.onrender.com/download/Robnite.exe"
     }
 }
