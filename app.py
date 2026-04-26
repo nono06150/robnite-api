@@ -14,11 +14,11 @@ def version():
         return jsonify({"error": "Unauthorized"}), 401
 
     return jsonify({
-        "version": "1.0.1",
-        "files": [
-            "launcher.qml",
-            "splash.qml"
-        ]
+        "version": "1.0.3",
+        "files": {
+            "launcher.qml": "https://robnite-api.onrender.com/download/launcher.qml",
+            "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
+        }
     })
 
 @app.route("/download/<path:filename>")
