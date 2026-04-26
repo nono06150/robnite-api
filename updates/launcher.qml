@@ -8,7 +8,7 @@ ApplicationWindow {
     width: 1100
     height: 700
     color: "#0b0d13"
-    title: "Robnite Launcher V43"
+    title: "Robnite Launcher"
 
     property bool isLaunching: false
     property bool isInstalling: false
