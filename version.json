@@ -1,16 +1,7 @@
 {
-    "version": "1.0.1",
-    "patch_notes": [
-        "Nouvelle interface de mise à jour",
-        "Ajout de la barre de progression",
-        "Ajout du système de patch notes"
-    ],
-    "files": {
-        "launcher.qml": "https://robnite-api.onrender.com/download/launcher.qml",
-        "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
-    },
-    "exe": {
-        "version": "1.0.0",
-        "url": "https://robnite-api.onrender.com/download/Robnite.exe"
-    }
+  "version": "1.0.4",
+  "files": {
+    "launcher.qml": "https://robnite-api.onrender.com/download/launcher.qml",
+    "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
+  }
 }
