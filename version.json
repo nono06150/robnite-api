@@ -1,16 +1,7 @@
 {
-    "version": "1.0.2",
-    "patch_notes": [
-        "Correction du système d'update",
-        "Les QML téléchargés ne sont plus écrasés",
-        "Ajout de la fenêtre de mise à jour"
-    ],
-    "files": {
-        "launcher.qml": "https://robnite-api.onrender.com/download/launcher.qml",
-        "splash.qml": "https://robnite-api.onrender.com/download/splash.qml"
-    },
-    "exe": {
-        "version": "1.0.1",
-        "url": "https://robnite-api.onrender.com/download/Robnite.exe"
-    }
+  "version": "1.0.3",
+  "files": {
+    "launcher.qml": "...",
+    "splash.qml": "..."
+  }
 }
