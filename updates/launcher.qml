@@ -263,7 +263,7 @@ ApplicationWindow {
             spacing: 30
 
             Text {
-                text: "⚠️ SYSTÈME HORS LIGNE"
+                text: "⚠️ ROBNITE EN MAINTENANCE"
                 color: "#ff4444"
                 font.pixelSize: 42
                 font.bold: true
