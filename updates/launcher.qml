@@ -10,60 +10,50 @@ ApplicationWindow {
     color: "#0b0d13"
     title: "Robnite Launcher V6"
 
-    // --- PROPRIÉTÉS DU LAUNCHER (CORRIGÉES) ---
+    // --- PROPRIÉTÉS DU LAUNCHER ---
     property bool isLaunching: false
     property bool isInstalling: false
     property bool showDownloadPopup: false
     property bool showProfileMenu: false
-    
-    // CORRECTION : "backend.isGameInstalled" enlevé provisoirement pour éviter le crash.
-    property bool gameInstalledLocal: false 
-    
+    property bool gameInstalledLocal: backend.isGameInstalled
     property int installProgress: 0
     property real downloadedGB: 0.0
     property int downloadedFiles: 0
+
+    property int unreadNews: 10
+    property int newsPage: 1
+    property int playerCount: 0
+    property string pingStatus: "Low"
 
     property string downloadName: "Fortnite 3.0"
     property string downloadSeason: "Saison 3"
     property string downloadBuild: "3.0-CL-3901517"
     property string downloadSize: "35 GB"
+    property string installLocation: "Documents\\Robnite\\builds\\Fortnite 3.0"
 
     property string selectedBuild: window.isInstalling ? downloadName : (gameInstalledLocal ? downloadName : "Fortnite 1.11")
     property string buildStatus: window.isInstalling ? ("Downloading... " + installProgress + "%") : (gameInstalledLocal ? "Installed" : "Not installed")
 
     property int elapsedSeconds: 0
     property string sessionTimer: "00:00:00"
+    property int settingsIndex: 0
     property string selectedTheme: "Default"
 
-    // --- SYSTÈME DE PARTICULES (PLUIE + POUSSIÈRE FLOTTANTE) ---
+    // --- SYSTÈME DE PLUIE (ANIMATION CANVAS) ---
     Canvas {
-        id: effectCanvas
+        id: rainCanvas
         anchors.fill: parent
         z: 0
-        opacity: 0.4
-        
-        property var raindrops: []
-        property var particles: []
+        opacity: 0.3
+        property var drops: []
 
         Component.onCompleted: {
-            // Création de la pluie
             for (var i = 0; i < 100; i++) {
-                raindrops.push({
+                drops.push({
                     x: Math.random() * window.width,
                     y: Math.random() * window.height,
                     len: Math.random() * 15 + 5,
                     speed: Math.random() * 10 + 5
-                })
-            }
-            // Création des particules (orbites)
-            for (var j = 0; j < 40; j++) {
-                particles.push({
-                    x: Math.random() * window.width,
-                    y: Math.random() * window.height,
-                    r: Math.random() * 2.5 + 0.5,
-                    speedX: (Math.random() - 0.5) * 1.5,
-                    speedY: (Math.random() - 0.5) * 1.5,
-                    alpha: Math.random() * 0.8 + 0.2
                 })
             }
         }
@@ -71,52 +61,45 @@ ApplicationWindow {
         onPaint: {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
-            
-            // Dessin de la pluie
             ctx.strokeStyle = "#4a5b7d"
             ctx.lineWidth = 1
             ctx.beginPath()
-            for (var i = 0; i < raindrops.length; i++) {
-                var d = raindrops[i]
+            for (var i = 0; i < drops.length; i++) {
+                var d = drops[i]
                 ctx.moveTo(d.x, d.y)
                 ctx.lineTo(d.x, d.y + d.len)
             }
             ctx.stroke()
-
-            // Dessin des particules
-            for (var j = 0; j < particles.length; j++) {
-                var p = particles[j]
-                ctx.beginPath()
-                ctx.fillStyle = "rgba(255, 255, 255, " + p.alpha + ")"
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-                ctx.fill()
-            }
         }
 
         Timer {
-            interval: 16; running: true; repeat: true
+            interval: 16
+            running: true
+            repeat: true
             onTriggered: {
-                // Mouvement de la pluie
-                for (var i = 0; i < effectCanvas.raindrops.length; i++) {
-                    var d = effectCanvas.raindrops[i]
+                for (var i = 0; i < rainCanvas.drops.length; i++) {
+                    var d = rainCanvas.drops[i]
                     d.y += d.speed
-                    if (d.y > window.height) { d.y = -20; d.x = Math.random() * window.width }
+                    if (d.y > window.height) {
+                        d.y = -20
+                        d.x = Math.random() * window.width
+                    }
                 }
-                // Mouvement des particules
-                for (var j = 0; j < effectCanvas.particles.length; j++) {
-                    var p = effectCanvas.particles[j]
-                    p.x += p.speedX
-                    p.y += p.speedY
-                    // Rebond sur les bords
-                    if (p.x < 0 || p.x > window.width) p.speedX *= -1
-                    if (p.y < 0 || p.y > window.height) p.speedY *= -1
-                }
-                effectCanvas.requestPaint()
+                rainCanvas.requestPaint()
             }
         }
     }
 
     // --- FONCTIONS LOGIQUES ---
+    function formatSessionTime(seconds) {
+        var h = Math.floor(seconds / 3600)
+        var m = Math.floor((seconds % 3600) / 60)
+        var s = seconds % 60
+        return String(h).padStart(2, "0") + ":" +
+               String(m).padStart(2, "0") + ":" +
+               String(s).padStart(2, "0")
+    }
+
     function startInstall() {
         showDownloadPopup = false
         isInstalling = true
@@ -132,13 +115,23 @@ ApplicationWindow {
         installTimer.stop()
     }
 
-    // --- TIMERS D'INSTALLATION ---
+    // --- TIMERS ---
+    Timer {
+        interval: 1000; running: true; repeat: true
+        onTriggered: {
+            elapsedSeconds += 1
+            sessionTimer = formatSessionTime(elapsedSeconds)
+        }
+    }
+
     Timer {
         id: installTimer
         interval: 650; repeat: true; running: false
         onTriggered: {
             if (window.isInstalling) {
                 installProgress += 2
+                downloadedGB = Math.round((35 * installProgress / 100) * 100) / 100
+                downloadedFiles = Math.floor(417 * installProgress / 100)
                 if (installProgress >= 100) window.finishInstall()
             }
         }
@@ -149,12 +142,12 @@ ApplicationWindow {
         anchors.fill: parent
         z: -1
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#0b0d13" }
-            GradientStop { position: 1.0; color: selectedTheme === "Ocean" ? "#06233a" : "#1a0b2e" }
+            GradientStop { id: gradStop1; position: 0.0; color: "#0b0d13" }
+            GradientStop { id: gradStop2; position: 1.0; color: selectedTheme === "Ocean" ? "#06233a" : "#1a0b2e" }
         }
     }
 
-    // --- LAYOUT PRINCIPAL (BARRE LATÉRALE + CONTENU) ---
+    // --- LAYOUT PRINCIPAL ---
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -177,7 +170,7 @@ ApplicationWindow {
                     model: [
                         { icon: "🏠", index: 0 },
                         { icon: "🎮", index: 1 },
-                        { icon: "⚙️", index: 2 }
+                        { icon: "⚙️", index: 5 }
                     ]
                     Rectangle {
                         width: 45; height: 45; radius: 12
@@ -224,7 +217,7 @@ ApplicationWindow {
                 id: mainStack
                 Layout.fillWidth: true; Layout.fillHeight: true
                 
-                // PAGE 1: ACCUEIL
+                // PAGE ACCUEIL
                 ColumnLayout {
                     spacing: 20
                     Rectangle {
@@ -242,7 +235,7 @@ ApplicationWindow {
                     Item { Layout.fillHeight: true }
                 }
 
-                // PAGE 2: LIBRARIE (INSTALLATION)
+                // PAGE LIBRARIE (INSTALLATION)
                 ColumnLayout {
                     Text { text: "Votre Bibliothèque"; color: "white"; font.pixelSize: 24 }
                     ProgressBar {
@@ -252,22 +245,16 @@ ApplicationWindow {
                     }
                     Item { Layout.fillHeight: true }
                 }
-                
-                // PAGE 3: PARAMÈTRES
-                ColumnLayout {
-                    Text { text: "Paramètres"; color: "white"; font.pixelSize: 24 }
-                    Item { Layout.fillHeight: true }
-                }
             }
         }
     }
 
-    // --- OVERLAY DE MAINTENANCE (LE BOUTON ROND HORS LIGNE) ---
-    // Changez 'visible: true' en 'false' pour tester le launcher
+    // --- OVERLAY DE MAINTENANCE (LE BOUTON ROUGE) ---
+    // Changez 'visible: true' en 'false' pour débloquer le launcher
     Rectangle {
         id: maintenanceOverlay
         anchors.fill: parent
-        color: "#d9000000" // Fond noir semi-transparent (85%)
+        color: "#1a0000"
         z: 1000
         visible: true // <--- METTRE A FALSE POUR UTILISER LE LAUNCHER
 
@@ -275,37 +262,24 @@ ApplicationWindow {
             anchors.centerIn: parent
             spacing: 30
 
-            // BOUTON ROND
-            Rectangle {
-                id: offlineCircle
-                width: 140; height: 140; radius: 70
-                color: "#1a0505"
-                border.color: "#ff3333"
-                border.width: 3
+            Text {
+                text: "⚠️ SYSTÈME HORS LIGNE"
+                color: "#ff4444"
+                font.pixelSize: 42
+                font.bold: true
                 Layout.alignment: Qt.AlignHCenter
+            }
 
-                // Correction de la secousse avec un Translate
-                transform: Translate { id: shakeTranslate }
-
-                // GLOW ANIMÉ
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 120; height: 120; radius: 60
-                    color: "#ff0000"
-                    
-                    SequentialAnimation on opacity {
-                        loops: Animation.Infinite
-                        NumberAnimation { from: 0.05; to: 0.3; duration: 1200; easing.type: Easing.InOutQuad }
-                        NumberAnimation { from: 0.3; to: 0.05; duration: 1200; easing.type: Easing.InOutQuad }
-                    }
-                }
+            Rectangle {
+                width: 300; height: 60; radius: 8
+                color: "#960000"; border.color: "#ff0000"; border.width: 2
+                Layout.alignment: Qt.AlignHCenter
 
                 Text {
                     anchors.centerIn: parent
-                    text: "OFFLINE"
-                    color: "#ff3333"
+                    text: "ACCÈS REFUSÉ"
+                    color: "white"
                     font.bold: true; font.pixelSize: 18
-                    letterSpacing: 2
                 }
 
                 MouseArea {
@@ -313,24 +287,13 @@ ApplicationWindow {
                     onClicked: shakeAnim.start()
                 }
 
-                // Animation de secousse (corrigée)
-                SequentialAnimation {
+                SequentialAnimation on x {
                     id: shakeAnim
-                    NumberAnimation { target: shakeTranslate; property: "x"; to: 10; duration: 40 }
-                    NumberAnimation { target: shakeTranslate; property: "x"; to: -10; duration: 40 }
-                    NumberAnimation { target: shakeTranslate; property: "x"; to: 5; duration: 40 }
-                    NumberAnimation { target: shakeTranslate; property: "x"; to: -5; duration: 40 }
-                    NumberAnimation { target: shakeTranslate; property: "x"; to: 0; duration: 40 }
+                    running: false
+                    NumberAnimation { to: maintenanceOverlay.width/2 - 160; duration: 50 }
+                    NumberAnimation { to: maintenanceOverlay.width/2 - 140; duration: 50 }
+                    NumberAnimation { to: maintenanceOverlay.width/2 - 150; duration: 50 }
                 }
-            }
-
-            Text {
-                text: "LES SERVEURS SONT ACTUELLEMENT EN MAINTENANCE"
-                color: "white"
-                font.pixelSize: 14
-                font.letterSpacing: 1
-                opacity: 0.7
-                Layout.alignment: Qt.AlignHCenter
             }
         }
     }
