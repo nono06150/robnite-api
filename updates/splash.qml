@@ -4,118 +4,239 @@ import QtQuick.Controls 2.15
 ApplicationWindow {
     id: window
     visible: true
-    width: 600
-    height: 400
-    color: "transparent" // Permet d'utiliser le radius du Rectangle
+    width: 680
+    height: 430
+    color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+
+    property real progressValue: backend.loadProgress / 100
 
     Rectangle {
         id: bgRect
         anchors.fill: parent
-        color: "#0b0d13"
-        radius: 15
-        border.color: "#1e212d"
+        radius: 24
+        color: "#090b12"
+        border.color: "#272b3a"
         border.width: 1
+        clip: true
 
-        // Animation de changement de couleur du fond en boucle
-        SequentialAnimation on color {
-            id: bgAnim
-            running: false // Ne démarre que quand l'auth est réussie
-            loops: Animation.Infinite
-            ColorAnimation { from: "#0b0d13"; to: "#1a0b2e"; duration: 2000 }
-            ColorAnimation { from: "#1a0b2e"; to: "#0b1a2e"; duration: 2000 }
-            ColorAnimation { from: "#0b1a2e"; to: "#0b0d13"; duration: 2000 }
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#141633" }
+            GradientStop { position: 0.5; color: "#0b0d13" }
+            GradientStop { position: 1.0; color: "#1a0b2e" }
+        }
+
+        Rectangle {
+            width: 360
+            height: 360
+            radius: 180
+            color: "#7045ff"
+            opacity: 0.16
+            x: -120
+            y: -120
+
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.10; to: 0.24; duration: 1400; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.24; to: 0.10; duration: 1400; easing.type: Easing.InOutQuad }
+            }
+        }
+
+        Rectangle {
+            width: 300
+            height: 300
+            radius: 150
+            color: "#00d4ff"
+            opacity: 0.10
+            x: parent.width - 130
+            y: parent.height - 140
+
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.06; to: 0.18; duration: 1800; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.18; to: 0.06; duration: 1800; easing.type: Easing.InOutQuad }
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            border.width: 2
+            border.color: "#7045ff"
+            radius: 24
+            opacity: 0.35
         }
 
         Column {
             anchors.centerIn: parent
-            spacing: 30
+            spacing: 24
             width: parent.width
 
-            // Message "AUTHENTIFICATION RÉUSSIE"
+            Rectangle {
+                width: 92
+                height: 92
+                radius: 26
+                color: "#161923"
+                border.color: "#7045ff"
+                border.width: 2
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "R"
+                    color: "white"
+                    font.pixelSize: 48
+                    font.bold: true
+                    font.family: "Segoe UI"
+                }
+
+                RotationAnimation on rotation {
+                    running: backend.loadProgress < 100
+                    from: 0
+                    to: 360
+                    duration: 4500
+                    loops: Animation.Infinite
+                }
+            }
+
             Text {
                 id: successText
                 text: "AUTHENTIFICATION RÉUSSIE"
-                font.pixelSize: 22
+                color: "#42ff8a"
+                visible: false
+                font.pixelSize: 15
                 font.bold: true
                 font.family: "Segoe UI"
-                color: "#7045ff"
-                visible: false // Caché au début
                 anchors.horizontalCenter: parent.horizontalCenter
 
-                // Animation de clignotement (opacité)
                 SequentialAnimation on opacity {
                     loops: Animation.Infinite
-                    NumberAnimation { from: 1; to: 0.2; duration: 600; easing.type: Easing.InOutQuad }
-                    NumberAnimation { from: 0.2; to: 1; duration: 600; easing.type: Easing.InOutQuad }
+                    NumberAnimation { from: 1; to: 0.35; duration: 650; easing.type: Easing.InOutQuad }
+                    NumberAnimation { from: 0.35; to: 1; duration: 650; easing.type: Easing.InOutQuad }
                 }
             }
 
-            // Titre Principal
             Text {
                 id: titleText
                 text: "Robnite"
-                font.pixelSize: 50
+                color: "white"
+                font.pixelSize: 54
                 font.bold: true
                 font.family: "Segoe UI"
-                color: "white"
                 anchors.horizontalCenter: parent.horizontalCenter
-                
-                Behavior on font.pixelSize { NumberAnimation { duration: 500 } }
+
+                Behavior on font.pixelSize {
+                    NumberAnimation { duration: 450; easing.type: Easing.OutBack }
+                }
             }
 
-            // Barre de progression personnalisée
-            ProgressBar {
-                id: pb
-                value: backend.loadProgress
-                from: 0
-                to: 100
-                implicitWidth: 450
-                implicitHeight: 8
+            Text {
+                id: subtitleText
+                text: backend.loadProgress < 35 ? "Connexion aux services..." :
+                      backend.loadProgress < 70 ? "Préparation du launcher..." :
+                      backend.loadProgress < 100 ? "Chargement des fichiers..." :
+                      "Lancement..."
+                color: "#a0a3ae"
+                font.pixelSize: 14
+                font.family: "Segoe UI"
                 anchors.horizontalCenter: parent.horizontalCenter
+            }
 
-                background: Rectangle {
-                    color: "#1e212d"
-                    radius: 4
-                }
+            Rectangle {
+                width: 470
+                height: 14
+                radius: 7
+                color: "#161923"
+                border.color: "#2c3040"
+                anchors.horizontalCenter: parent.horizontalCenter
+                clip: true
 
-                contentItem: Item {
+                Rectangle {
+                    id: progressFill
+                    width: parent.width * progressValue
+                    height: parent.height
+                    radius: 7
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: "#7045ff" }
+                        GradientStop { position: 0.5; color: "#8b5cf6" }
+                        GradientStop { position: 1.0; color: "#00d4ff" }
+                    }
+
+                    Behavior on width {
+                        NumberAnimation { duration: 220; easing.type: Easing.OutQuad }
+                    }
+
                     Rectangle {
-                        width: pb.visualPosition * parent.width
+                        width: 45
                         height: parent.height
-                        color: "#7045ff"
-                        radius: 4
+                        radius: 7
+                        color: "white"
+                        opacity: 0.22
+                        anchors.right: parent.right
 
-                        // Petit éclat au bout de la barre
-                        Rectangle {
-                            width: 10; height: parent.height
-                            color: "white"
-                            opacity: 0.3
-                            anchors.right: parent.right
+                        SequentialAnimation on opacity {
+                            loops: Animation.Infinite
+                            NumberAnimation { from: 0.10; to: 0.35; duration: 500 }
+                            NumberAnimation { from: 0.35; to: 0.10; duration: 500 }
                         }
                     }
                 }
             }
-            
+
+            Row {
+                spacing: 8
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                Repeater {
+                    model: 3
+
+                    Rectangle {
+                        width: 9
+                        height: 9
+                        radius: 5
+                        color: "#7045ff"
+
+                        SequentialAnimation on opacity {
+                            loops: Animation.Infinite
+                            PauseAnimation { duration: index * 160 }
+                            NumberAnimation { from: 0.25; to: 1; duration: 350 }
+                            NumberAnimation { from: 1; to: 0.25; duration: 350 }
+                            PauseAnimation { duration: 480 }
+                        }
+                    }
+                }
+            }
+
             Text {
                 text: Math.floor(backend.loadProgress) + "%"
-                color: "#8a8d98"
-                font.pixelSize: 14
+                color: "#d0d2dc"
+                font.pixelSize: 16
+                font.bold: true
+                font.family: "Segoe UI"
                 anchors.horizontalCenter: parent.horizontalCenter
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            property point clickPos
+
+            onPressed: clickPos = Qt.point(mouse.x, mouse.y)
+
+            onPositionChanged: {
+                window.x += mouse.x - clickPos.x
+                window.y += mouse.y - clickPos.y
             }
         }
     }
 
-    // Gestion des signaux venant du Python (main.py)
     Connections {
         target: backend
 
-        // Quand l'authentification Discord est reçue
         function onAuthDone() {
             successText.visible = true
-            bgAnim.running = true
-            titleText.text = "PRÉPARATION DES FICHIERS..."
-            titleText.font.pixelSize = 24
+            titleText.text = "PRÉPARATION..."
+            titleText.font.pixelSize = 32
         }
     }
 }
