@@ -25,8 +25,6 @@ ApplicationWindow {
 
             property real angle: 0
 
-            onAngleChanged: requestPaint()
-
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
@@ -49,12 +47,17 @@ ApplicationWindow {
                 ctx.stroke()
             }
 
-            NumberAnimation on angle {
-                from: 0
-                to: 360
-                duration: 900
-                loops: Animation.Infinite
+            Timer {
+                interval: 16
                 running: true
+                repeat: true
+                onTriggered: {
+                    loaderRing.angle += 6
+                    if (loaderRing.angle >= 360)
+                        loaderRing.angle = 0
+
+                    loaderRing.requestPaint()
+                }
             }
         }
 
