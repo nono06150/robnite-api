@@ -4,216 +4,107 @@ import QtQuick.Controls 2.15
 ApplicationWindow {
     id: window
     visible: true
-    width: 680
-    height: 430
-    color: "transparent"
+    width: 1136
+    height: 678
+    color: "#0f1828"
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
 
     property real progressValue: backend.loadProgress / 100
 
     Rectangle {
-        id: bgRect
         anchors.fill: parent
-        radius: 24
-        color: "#090b12"
-        border.color: "#272b3a"
-        border.width: 1
-        clip: true
+        color: "#0f1828"
 
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#141633" }
-            GradientStop { position: 0.5; color: "#0b0d13" }
-            GradientStop { position: 1.0; color: "#1a0b2e" }
-        }
+        Canvas {
+            id: loaderRing
+            width: 54
+            height: 54
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: -42
 
-        Rectangle {
-            width: 360
-            height: 360
-            radius: 180
-            color: "#7045ff"
-            opacity: 0.16
-            x: -120
-            y: -120
+            property real angle: 0
 
-            SequentialAnimation on opacity {
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+
+                ctx.beginPath()
+                ctx.lineWidth = 5
+                ctx.strokeStyle = "#2a3448"
+                ctx.arc(width / 2, height / 2, 20, 0, Math.PI * 2)
+                ctx.stroke()
+
+                ctx.beginPath()
+                ctx.lineWidth = 5
+                ctx.strokeStyle = "#6f6bff"
+                ctx.lineCap = "round"
+
+                var start = (angle - 90) * Math.PI / 180
+                var end = (angle + 105) * Math.PI / 180
+
+                ctx.arc(width / 2, height / 2, 20, start, end)
+                ctx.stroke()
+            }
+
+            NumberAnimation on angle {
+                from: 0
+                to: 360
+                duration: 900
                 loops: Animation.Infinite
-                NumberAnimation { from: 0.10; to: 0.24; duration: 1400; easing.type: Easing.InOutQuad }
-                NumberAnimation { from: 0.24; to: 0.10; duration: 1400; easing.type: Easing.InOutQuad }
+                running: true
+                onValueChanged: loaderRing.requestPaint()
             }
         }
 
-        Rectangle {
-            width: 300
-            height: 300
-            radius: 150
-            color: "#00d4ff"
-            opacity: 0.10
-            x: parent.width - 130
-            y: parent.height - 140
+        Text {
+            id: statusText
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: loaderRing.bottom
+            anchors.topMargin: 14
+            text: backend.loadProgress < 20 ? "Checking for updates" :
+                  backend.loadProgress < 55 ? "Preparing launcher" :
+                  backend.loadProgress < 90 ? "Loading files" :
+                  "Starting Robnite"
+            color: "white"
+            font.family: "Segoe UI"
+            font.pixelSize: 15
+            font.bold: true
+        }
 
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                NumberAnimation { from: 0.06; to: 0.18; duration: 1800; easing.type: Easing.InOutQuad }
-                NumberAnimation { from: 0.18; to: 0.06; duration: 1800; easing.type: Easing.InOutQuad }
-            }
+        Text {
+            id: versionText
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: statusText.bottom
+            anchors.topMargin: 8
+            text: "v" + backend.launcherVersion
+            color: "#5f6f8f"
+            font.family: "Segoe UI"
+            font.pixelSize: 12
         }
 
         Rectangle {
-            anchors.fill: parent
-            color: "transparent"
-            border.width: 2
-            border.color: "#7045ff"
-            radius: 24
-            opacity: 0.35
-        }
-
-        Column {
-            anchors.centerIn: parent
-            spacing: 24
-            width: parent.width
+            width: 150
+            height: 3
+            radius: 2
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: versionText.bottom
+            anchors.topMargin: 16
+            color: "#1a2537"
+            clip: true
 
             Rectangle {
-                width: 92
-                height: 92
-                radius: 26
-                color: "#161923"
-                border.color: "#7045ff"
-                border.width: 2
-                anchors.horizontalCenter: parent.horizontalCenter
+                height: parent.height
+                width: parent.width * progressValue
+                radius: 2
+                color: "#6f6bff"
 
-                Text {
-                    anchors.centerIn: parent
-                    text: "R"
-                    color: "white"
-                    font.pixelSize: 48
-                    font.bold: true
-                    font.family: "Segoe UI"
-                }
-
-                RotationAnimation on rotation {
-                    running: backend.loadProgress < 100
-                    from: 0
-                    to: 360
-                    duration: 4500
-                    loops: Animation.Infinite
-                }
-            }
-
-            Text {
-                id: successText
-                text: "AUTHENTIFICATION RÉUSSIE"
-                color: "#42ff8a"
-                visible: false
-                font.pixelSize: 15
-                font.bold: true
-                font.family: "Segoe UI"
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                SequentialAnimation on opacity {
-                    loops: Animation.Infinite
-                    NumberAnimation { from: 1; to: 0.35; duration: 650; easing.type: Easing.InOutQuad }
-                    NumberAnimation { from: 0.35; to: 1; duration: 650; easing.type: Easing.InOutQuad }
-                }
-            }
-
-            Text {
-                id: titleText
-                text: "Robnite"
-                color: "white"
-                font.pixelSize: 54
-                font.bold: true
-                font.family: "Segoe UI"
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Behavior on font.pixelSize {
-                    NumberAnimation { duration: 450; easing.type: Easing.OutBack }
-                }
-            }
-
-            Text {
-                id: subtitleText
-                text: backend.loadProgress < 35 ? "Connexion aux services..." :
-                      backend.loadProgress < 70 ? "Préparation du launcher..." :
-                      backend.loadProgress < 100 ? "Chargement des fichiers..." :
-                      "Lancement..."
-                color: "#a0a3ae"
-                font.pixelSize: 14
-                font.family: "Segoe UI"
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            Rectangle {
-                width: 470
-                height: 14
-                radius: 7
-                color: "#161923"
-                border.color: "#2c3040"
-                anchors.horizontalCenter: parent.horizontalCenter
-                clip: true
-
-                Rectangle {
-                    id: progressFill
-                    width: parent.width * progressValue
-                    height: parent.height
-                    radius: 7
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#7045ff" }
-                        GradientStop { position: 0.5; color: "#8b5cf6" }
-                        GradientStop { position: 1.0; color: "#00d4ff" }
-                    }
-
-                    Behavior on width {
-                        NumberAnimation { duration: 220; easing.type: Easing.OutQuad }
-                    }
-
-                    Rectangle {
-                        width: 45
-                        height: parent.height
-                        radius: 7
-                        color: "white"
-                        opacity: 0.22
-                        anchors.right: parent.right
-
-                        SequentialAnimation on opacity {
-                            loops: Animation.Infinite
-                            NumberAnimation { from: 0.10; to: 0.35; duration: 500 }
-                            NumberAnimation { from: 0.35; to: 0.10; duration: 500 }
-                        }
+                Behavior on width {
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.OutQuad
                     }
                 }
-            }
-
-            Row {
-                spacing: 8
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Repeater {
-                    model: 3
-
-                    Rectangle {
-                        width: 9
-                        height: 9
-                        radius: 5
-                        color: "#7045ff"
-
-                        SequentialAnimation on opacity {
-                            loops: Animation.Infinite
-                            PauseAnimation { duration: index * 160 }
-                            NumberAnimation { from: 0.25; to: 1; duration: 350 }
-                            NumberAnimation { from: 1; to: 0.25; duration: 350 }
-                            PauseAnimation { duration: 480 }
-                        }
-                    }
-                }
-            }
-
-            Text {
-                text: Math.floor(backend.loadProgress) + "%"
-                color: "#d0d2dc"
-                font.pixelSize: 16
-                font.bold: true
-                font.family: "Segoe UI"
-                anchors.horizontalCenter: parent.horizontalCenter
             }
         }
 
@@ -234,9 +125,7 @@ ApplicationWindow {
         target: backend
 
         function onAuthDone() {
-            successText.visible = true
-            titleText.text = "PRÉPARATION..."
-            titleText.font.pixelSize = 32
+            statusText.text = "Authentication successful"
         }
     }
 }
