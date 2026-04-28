@@ -25,6 +25,8 @@ ApplicationWindow {
 
             property real angle: 0
 
+            onAngleChanged: requestPaint()
+
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
@@ -53,7 +55,6 @@ ApplicationWindow {
                 duration: 900
                 loops: Animation.Infinite
                 running: true
-                onValueChanged: loaderRing.requestPaint()
             }
         }
 
