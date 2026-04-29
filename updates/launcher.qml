@@ -319,7 +319,7 @@ ApplicationWindow {
             z: 2 // S'assure que le texte reste au-dessus des particules
 
             Text {
-                text: "⚠️ ROBNITE EN MAINTENANCE"
+                text: "⚠️ ROBNITE EN MAINTENANCE !"
                 color: "#ff4444"
                 font.pixelSize: 42
                 font.bold: true
