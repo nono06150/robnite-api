@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Particles 2.15 // Ajout du module de particules
+import QtQuick.Particles 2.15
 
 ApplicationWindow {
     id: window
@@ -250,20 +250,18 @@ ApplicationWindow {
         }
     }
 
-    // --- OVERLAY DE MAINTENANCE (LE BOUTON ROUGE) ---
-    // Changez 'visible: true' en 'false' pour débloquer le launcher
+    // --- OVERLAY DE MAINTENANCE (AVEC CHARGEMENT) ---
     Rectangle {
         id: maintenanceOverlay
         anchors.fill: parent
-        color: "#1a0000"
+        color: "#0b0d13" // Couleur sombre comme sur l'image
         z: 1000
-        visible: true // <--- METTRE A FALSE POUR UTILISER LE LAUNCHER
+        visible: true 
 
-        // --- NOUVEAU : SYSTÈME DE PARTICULES "ALERTE / MAINTENANCE" ---
+        // --- SYSTÈME DE PARTICULES ---
         ParticleSystem {
             id: alertParticles
             anchors.fill: parent
-
             ItemParticle {
                 system: alertParticles
                 delegate: Item {
@@ -271,85 +269,79 @@ ApplicationWindow {
                     Rectangle {
                         anchors.centerIn: parent
                         width: 6; height: 6; radius: 3
-                        color: "#ff1111"
-                        opacity: 0.8
-                        border.color: "#ff6666"
-                        border.width: 1
-                        
-                        // Effet de clignotement type alarme
-                        SequentialAnimation on opacity {
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.1; duration: 600 + Math.random() * 400 }
-                            NumberAnimation { to: 0.9; duration: 600 + Math.random() * 400 }
-                        }
+                        color: "#4a5b7d"
+                        opacity: 0.5
                     }
                 }
             }
-
-            // Émetteur de particules depuis le bas de l'écran
             Emitter {
                 system: alertParticles
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 40
-                emitRate: 35
+                emitRate: 15
                 lifeSpan: 5000
-                lifeSpanVariation: 1500
-                // Fait monter les étincelles vers le haut
-                velocity: PointDirection { 
-                    y: -60
-                    yVariation: 20
-                    xVariation: 30 
-                }
-            }
-
-            // Donne un mouvement flottant/aléatoire aux particules
-            Wander {
-                system: alertParticles
-                anchors.fill: parent
-                xVariance: 45
-                pace: 80
+                velocity: PointDirection { y: -40; yVariation: 10; xVariation: 20 }
             }
         }
-        // --- FIN DU SYSTÈME DE PARTICULES ---
 
+        // --- CERCLE DE CHARGEMENT ET TEXTE ---
         ColumnLayout {
             anchors.centerIn: parent
-            spacing: 30
-            z: 2 // S'assure que le texte reste au-dessus des particules
+            spacing: 15
 
+            // Le Spinner (Cercle animé)
+            Canvas {
+                id: loadingSpinner
+                width: 60; height: 60
+                Layout.alignment: Qt.AlignHCenter
+                property real angle: 0
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+                    
+                    // Cercle de fond (sombre)
+                    ctx.beginPath()
+                    ctx.strokeStyle = "#1e222d"
+                    ctx.lineWidth = 4
+                    ctx.arc(width/2, height/2, 25, 0, Math.PI * 2)
+                    ctx.stroke()
+
+                    // Arc de chargement (bleu lumineux)
+                    ctx.beginPath()
+                    ctx.strokeStyle = "#5a67ff"
+                    ctx.lineWidth = 4
+                    ctx.lineCap = "round"
+                    ctx.arc(width/2, height/2, 25, angle, angle + Math.PI * 0.5)
+                    ctx.stroke()
+                }
+
+                RotationAnimation on angle {
+                    from: 0; to: Math.PI * 2
+                    duration: 1000
+                    loops: Animation.Infinite
+                    running: maintenanceOverlay.visible
+                }
+
+                onAngleChanged: requestPaint()
+            }
+
+            // Texte de statut
             Text {
-                text: "⚠️ ROBNITE EN MAINTENANCE !"
-                color: "#ff4444"
-                font.pixelSize: 42
-                font.bold: true
+                text: "Checking for updates"
+                color: "white"
+                font.pixelSize: 16
+                font.weight: Font.Medium
                 Layout.alignment: Qt.AlignHCenter
             }
 
-            Rectangle {
-                width: 300; height: 60; radius: 8
-                color: "#960000"; border.color: "#ff0000"; border.width: 2
+            // Version
+            Text {
+                text: "v3.0.9"
+                color: "#555a64"
+                font.pixelSize: 12
                 Layout.alignment: Qt.AlignHCenter
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "ACCÈS REFUSÉ"
-                    color: "white"
-                    font.bold: true; font.pixelSize: 18
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: shakeAnim.start()
-                }
-
-                SequentialAnimation on x {
-                    id: shakeAnim
-                    running: false
-                    NumberAnimation { to: maintenanceOverlay.width/2 - 160; duration: 50 }
-                    NumberAnimation { to: maintenanceOverlay.width/2 - 140; duration: 50 }
-                    NumberAnimation { to: maintenanceOverlay.width/2 - 150; duration: 50 }
-                }
             }
         }
     }
