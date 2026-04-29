@@ -250,15 +250,16 @@ ApplicationWindow {
         }
     }
 
-    // --- OVERLAY DE MAINTENANCE (AVEC CHARGEMENT) ---
+    // --- OVERLAY DE MISE À JOUR (AVEC LE LOADING SPINNER) ---
+    // Mettez visible: false pour accéder au launcher
     Rectangle {
         id: maintenanceOverlay
         anchors.fill: parent
-        color: "#0b0d13" // Couleur sombre comme sur l'image
+        color: "#0b0d13" // Couleur de fond sombre
         z: 1000
         visible: true 
 
-        // --- SYSTÈME DE PARTICULES ---
+        // SYSTÈME DE PARTICULES (Optionnel, laissé comme dans votre code)
         ParticleSystem {
             id: alertParticles
             anchors.fill: parent
@@ -270,7 +271,7 @@ ApplicationWindow {
                         anchors.centerIn: parent
                         width: 6; height: 6; radius: 3
                         color: "#4a5b7d"
-                        opacity: 0.5
+                        opacity: 0.4
                     }
                 }
             }
@@ -285,15 +286,15 @@ ApplicationWindow {
             }
         }
 
-        // --- CERCLE DE CHARGEMENT ET TEXTE ---
+        // --- CERCLE DE CHARGEMENT ET TEXTES (Comme sur l'image) ---
         ColumnLayout {
             anchors.centerIn: parent
-            spacing: 15
+            spacing: 12
 
-            // Le Spinner (Cercle animé)
+            // L'animation du cercle (Spinner)
             Canvas {
                 id: loadingSpinner
-                width: 60; height: 60
+                width: 48; height: 48
                 Layout.alignment: Qt.AlignHCenter
                 property real angle: 0
 
@@ -301,25 +302,31 @@ ApplicationWindow {
                     var ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
                     
-                    // Cercle de fond (sombre)
+                    var centerX = width / 2
+                    var centerY = height / 2
+                    var radius = 20
+                    var lineWidth = 4
+
+                    // Cercle de fond gris/transparent
                     ctx.beginPath()
-                    ctx.strokeStyle = "#1e222d"
-                    ctx.lineWidth = 4
-                    ctx.arc(width/2, height/2, 25, 0, Math.PI * 2)
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"
+                    ctx.lineWidth = lineWidth
+                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
                     ctx.stroke()
 
-                    // Arc de chargement (bleu lumineux)
+                    // Arc de progression bleu
                     ctx.beginPath()
-                    ctx.strokeStyle = "#5a67ff"
-                    ctx.lineWidth = 4
-                    ctx.lineCap = "round"
-                    ctx.arc(width/2, height/2, 25, angle, angle + Math.PI * 0.5)
+                    ctx.strokeStyle = "#6b72ff" // La couleur bleue de l'image
+                    ctx.lineWidth = lineWidth
+                    ctx.lineCap = "round"       // Bords arrondis comme sur l'image
+                    ctx.arc(centerX, centerY, radius, angle, angle + Math.PI * 0.4) // Longueur de l'arc
                     ctx.stroke()
                 }
 
+                // Fait tourner l'arc en boucle
                 RotationAnimation on angle {
                     from: 0; to: Math.PI * 2
-                    duration: 1000
+                    duration: 1100
                     loops: Animation.Infinite
                     running: maintenanceOverlay.visible
                 }
@@ -327,20 +334,21 @@ ApplicationWindow {
                 onAngleChanged: requestPaint()
             }
 
-            // Texte de statut
+            // Textes en dessous
             Text {
                 text: "Checking for updates"
-                color: "white"
-                font.pixelSize: 16
+                color: "#e2e5f0"
+                font.pixelSize: 15
                 font.weight: Font.Medium
+                font.family: "Segoe UI"
                 Layout.alignment: Qt.AlignHCenter
             }
 
-            // Version
             Text {
                 text: "v3.0.9"
-                color: "#555a64"
+                color: "#7b8396"
                 font.pixelSize: 12
+                font.family: "Segoe UI"
                 Layout.alignment: Qt.AlignHCenter
             }
         }
