@@ -365,7 +365,7 @@ ApplicationWindow {
             }
 
             Text {
-                text: "v3.0.9"
+                text: "v1.0.0"
                 color: "#7b8396"
                 font.pixelSize: 12
                 font.family: "Segoe UI"
