@@ -250,7 +250,7 @@ ApplicationWindow {
         }
     }
 
-    // --- OVERLAY DE MISE À JOUR (AVEC LE LOADING SPINNER) ---
+    // --- OVERLAY DE MISE À JOUR / MAINTENANCE ---
     // Mettez visible: false pour accéder au launcher
     Rectangle {
         id: maintenanceOverlay
@@ -259,7 +259,7 @@ ApplicationWindow {
         z: 1000
         visible: true 
 
-        // SYSTÈME DE PARTICULES (Optionnel, laissé comme dans votre code)
+        // SYSTÈME DE PARTICULES ROUGES
         ParticleSystem {
             id: alertParticles
             anchors.fill: parent
@@ -270,8 +270,17 @@ ApplicationWindow {
                     Rectangle {
                         anchors.centerIn: parent
                         width: 6; height: 6; radius: 3
-                        color: "#4a5b7d"
-                        opacity: 0.4
+                        color: "#ff2222" // Particules rouges
+                        border.color: "#ff6666" // Contour rouge clair pour effet lumineux
+                        border.width: 1
+                        opacity: 0.6
+                        
+                        // Petit effet de scintillement
+                        SequentialAnimation on opacity {
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 0.2; duration: 500 + Math.random() * 500 }
+                            NumberAnimation { to: 0.8; duration: 500 + Math.random() * 500 }
+                        }
                     }
                 }
             }
@@ -280,16 +289,27 @@ ApplicationWindow {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 40
-                emitRate: 15
+                emitRate: 20
                 lifeSpan: 5000
-                velocity: PointDirection { y: -40; yVariation: 10; xVariation: 20 }
+                velocity: PointDirection { y: -40; yVariation: 15; xVariation: 25 }
             }
         }
 
-        // --- CERCLE DE CHARGEMENT ET TEXTES (Comme sur l'image) ---
+        // --- CERCLE DE CHARGEMENT ET TEXTES ---
         ColumnLayout {
             anchors.centerIn: parent
             spacing: 12
+
+            // Texte MAINTENANCE ajouté
+            Text {
+                text: "MAINTENANCE EN COURS"
+                color: "#ff4444"
+                font.pixelSize: 22
+                font.bold: true
+                font.letterSpacing: 2
+                Layout.alignment: Qt.AlignHCenter
+                Layout.bottomMargin: 15
+            }
 
             // L'animation du cercle (Spinner)
             Canvas {
@@ -318,7 +338,7 @@ ApplicationWindow {
                     ctx.beginPath()
                     ctx.strokeStyle = "#6b72ff" // La couleur bleue de l'image
                     ctx.lineWidth = lineWidth
-                    ctx.lineCap = "round"       // Bords arrondis comme sur l'image
+                    ctx.lineCap = "round"       // Bords arrondis
                     ctx.arc(centerX, centerY, radius, angle, angle + Math.PI * 0.4) // Longueur de l'arc
                     ctx.stroke()
                 }
