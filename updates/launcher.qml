@@ -13,7 +13,7 @@ ApplicationWindow {
 
     // --- PROPRIÉTÉS DU LAUNCHER ---
     property bool isLaunching: false
-    property bool isInstalling: false
+    property bool isInstalling: fal
     property bool showDownloadPopup: false
     property bool showProfileMenu: false
     property bool gameInstalledLocal: backend.isGameInstalled
