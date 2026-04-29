@@ -8,7 +8,7 @@ ApplicationWindow {
     visible: true
     width: 1100
     height: 700
-    color: "#0b0d13
+    color: "#0b0d13"
     title: "Robnite Launcher"
 
     // --- PROPRIÉTÉS DU LAUNCHER ---
